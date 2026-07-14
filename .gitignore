@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# OS
+.DS_Store
+
+# Keep raw JSON dumps out of git (they're just a debugging cache) —
+# but keep data/processed/*.csv tracked, since that's what Power BI
+# reads and it's small enough to live in the repo.
+data/raw/*.json
+
+# Power BI
+*.pbix.bak
