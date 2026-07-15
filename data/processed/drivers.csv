@@ -1,0 +1,23 @@
+driver_id,full_name,nationality,birthday,number,shortname,team
+antonelli,Andrea Kimi Antonelli,Italy,25/08/2006,12,ANT,mercedes
+russell,George Russell,Great Britain,15/02/1998,63,RUS,mercedes
+hamilton,Lewis Hamilton,Great Britain,07/01/1985,44,HAM,ferrari
+leclerc,Charles Leclerc,Monaco,16/10/1997,16,LEC,ferrari
+norris,Lando Norris,Great Britain,13/11/1999,4,NOR,mclaren
+piastri,Oscar Piastri,Australia,06/04/2001,81,PIA,mclaren
+max_verstappen,Max Verstappen,Netherlands,30/09/1997,33,VER,red_bull
+hadjar,Isack Hadjar,France,28/02/2004,6,HAD,red_bull
+gasly,Pierre Gasly,France,07/02/1996,10,GAS,alpine
+lawson,Liam Lawson,New Zealand,11/02/2002,30,LAW,rb
+lindblad,Arvid Lindblad,Great Britain,07/08/2007,36,LIN,rb
+bearman,Oliver Bearman,Great Britain,08/05/2005,87,BEA,haas
+colapinto,Franco Colapinto,Argentina,27/05/2003,43,COL,alpine
+bortoleto,Gabriel Bortoleto,Brazil,14/10/2004,5,BOR,audi
+sainz,Carlos Sainz,Spain,01/09/1994,55,SAI,williams
+albon,Alex Albon,Thailand,23/03/1996,23,ALB,williams
+ocon,Esteban Ocon,France,17/09/1996,31,OCO,haas
+alonso,Fernando Alonso,Spain,29/07/1981,14,ALO,aston_martin
+hulkenberg,Nico Hulkenberg,Germany,19/08/1987,27,HUL,audi
+bottas,Valtteri Bottas,Finland,28/08/1989,77,BOT,cadillac
+perez,Sergio Pérez,Mexico,26/01/1990,11,PER,cadillac
+stroll,Lance Stroll,Canada,29/10/1998,18,STR,aston_martin

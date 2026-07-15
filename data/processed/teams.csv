@@ -1,0 +1,12 @@
+team_id,team_name,nationality,first_appearance,constructors_championships,drivers_championships
+mercedes,Mercedes Formula 1 Team,Germany,1954,8.0,9.0
+ferrari,Scuderia Ferrari,Italy,1950,16.0,15.0
+mclaren,McLaren Formula 1 Team,Great Britain,1966,10.0,13.0
+red_bull,Red Bull Racing,Austria,2005,6.0,8.0
+alpine,Alpine F1 Team,France,2021,,
+rb,RB F1 Team,Italy,2024,,
+haas,Haas F1 Team,United States,2016,,
+williams,Williams Racing,Great Britain,1977,9.0,7.0
+audi,Audi Revolut F1 Team,Germany,2026,,
+aston_martin,Aston Martin F1 Team,Great Britain,1959,,
+cadillac,Cadillac Formula 1 Team,United States,2026,,

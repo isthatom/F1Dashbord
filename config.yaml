@@ -1,0 +1,18 @@
+# F1 Data Pipeline configuration
+# CLI arguments override these values at runtime.
+
+api:
+  base_url: "https://f1api.dev/api"
+  request_timeout: 15
+  request_delay: 0.5
+  max_retries: 3
+
+seasons:
+  # Historical range to load on each run (inclusive).
+  start_year: 2018
+  end_year: current   # use "current" to always include the active season
+
+pipeline:
+  fetch_race_results: true
+  save_raw_json: true
+  export_csv: false   # set true to also write data/processed/*.csv (legacy)

@@ -1,24 +1,28 @@
 """
-Turns raw JSON from the API into clean, flat pandas DataFrames that Power BI
-will be happy to import.
+Flatten nested f1api.dev JSON responses into pandas DataFrames.
 
-APIs usually return nested JSON (objects inside objects). Power BI, Excel,
-and most charting tools want flat tables: one row per record, one column
-per field. This module is where that flattening happens, and it's the
-first place to look if a column looks wrong once you're in Power BI.
-
-NOTE: the exact key names below (e.g. "drivers", "driverId", "team") are
-based on f1api.dev's documented response shape. If the live API returns
-slightly different field names, run `python main.py --season current`
-once, inspect the JSON written to data/raw/, and adjust the `.get(...)`
-calls here to match — that's the normal workflow when wiring up any new
-API, not a sign something is broken.
+This is the ONLY module that knows how API field names map to table columns.
 """
 
 import logging
+
 import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+
+def circuits_to_df(raw: dict) -> pd.DataFrame:
+    """Flatten the /circuits response into one row per circuit."""
+    records = raw.get("circuits", raw if isinstance(raw, list) else [])
+    rows = []
+    for c in records:
+        rows.append({
+            "circuit_id": c.get("circuitId"),
+            "circuit_name": c.get("circuitName") or c.get("name"),
+            "city": c.get("city"),
+            "country": c.get("country"),
+        })
+    return pd.DataFrame(rows)
 
 
 def drivers_to_df(raw: dict) -> pd.DataFrame:
@@ -33,7 +37,7 @@ def drivers_to_df(raw: dict) -> pd.DataFrame:
             "birthday": d.get("birthday"),
             "number": d.get("number"),
             "shortname": d.get("shortName"),
-            "team": d.get("teamId") or d.get("team"),
+            "team_id": d.get("teamId") or d.get("team"),
         })
     return pd.DataFrame(rows)
 
@@ -54,7 +58,7 @@ def teams_to_df(raw: dict) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def races_to_df(raw: dict) -> pd.DataFrame:
+def races_to_df(raw: dict, season: str | int | None = None) -> pd.DataFrame:
     """
     Flatten the races-calendar response into one row per race.
 
@@ -63,12 +67,14 @@ def races_to_df(raw: dict) -> pd.DataFrame:
     We just check both.
     """
     records = raw.get("races") or raw.get("race") or (raw if isinstance(raw, list) else [])
+    resolved_season = season if season is not None else raw.get("season")
     rows = []
     for r in records:
         circuit = r.get("circuit", {}) or {}
         schedule = r.get("schedule", {}) or {}
         race_date = (schedule.get("race", {}) or {}).get("date") if schedule else r.get("date")
         rows.append({
+            "season": resolved_season,
             "round": r.get("round"),
             "race_id": r.get("raceId"),
             "race_name": r.get("raceName") or r.get("name"),
@@ -81,7 +87,18 @@ def races_to_df(raw: dict) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def driver_standings_to_df(raw: dict, season: str) -> pd.DataFrame:
+def circuits_from_races_df(races_df: pd.DataFrame) -> pd.DataFrame:
+    """Extract a circuits dimension from an already-flattened races DataFrame."""
+    if races_df.empty:
+        return pd.DataFrame(columns=["circuit_id", "circuit_name", "city", "country"])
+    return (
+        races_df[["circuit_id", "circuit_name", "city", "country"]]
+        .dropna(subset=["circuit_id"])
+        .drop_duplicates("circuit_id")
+    )
+
+
+def driver_standings_to_df(raw: dict, season: str | int) -> pd.DataFrame:
     """Flatten the drivers' championship standings."""
     records = raw.get("drivers_championship", raw.get("standings", []))
     rows = []
@@ -89,9 +106,9 @@ def driver_standings_to_df(raw: dict, season: str) -> pd.DataFrame:
         driver = entry.get("driver", {}) or {}
         team = entry.get("team", {}) or {}
         rows.append({
-            "season": season,
+            "season": int(season),
             "position": entry.get("position"),
-            "driver_id": driver.get("driverId"),
+            "driver_id": entry.get("driverId") or driver.get("driverId"),
             "driver_name": f"{driver.get('name', '')} {driver.get('surname', '')}".strip(),
             "team_name": team.get("teamName") or team.get("name"),
             "points": entry.get("points"),
@@ -100,16 +117,16 @@ def driver_standings_to_df(raw: dict, season: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def constructor_standings_to_df(raw: dict, season: str) -> pd.DataFrame:
+def constructor_standings_to_df(raw: dict, season: str | int) -> pd.DataFrame:
     """Flatten the constructors' championship standings."""
     records = raw.get("constructors_championship", raw.get("standings", []))
     rows = []
     for entry in records:
         team = entry.get("team", {}) or {}
         rows.append({
-            "season": season,
+            "season": int(season),
             "position": entry.get("position"),
-            "team_id": team.get("teamId"),
+            "team_id": entry.get("teamId") or team.get("teamId"),
             "team_name": team.get("teamName") or team.get("name"),
             "points": entry.get("points"),
             "wins": entry.get("wins"),
@@ -117,7 +134,7 @@ def constructor_standings_to_df(raw: dict, season: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def race_results_to_df(raw: dict, season: str, round_number: int) -> pd.DataFrame:
+def race_results_to_df(raw: dict, season: str | int, round_number: int) -> pd.DataFrame:
     """
     Flatten a single race's results into one row per finishing driver.
 
@@ -130,17 +147,22 @@ def race_results_to_df(raw: dict, season: str, round_number: int) -> pd.DataFram
     for entry in records:
         driver = entry.get("driver", {}) or {}
         team = entry.get("team", {}) or {}
+        position = entry.get("position")
         rows.append({
-            "season": season,
+            "season": int(season),
             "round": round_number,
             "race_name": race.get("raceName"),
-            "position": entry.get("position"),
+            "position": position,
+            "finished": 1 if position not in (None, "NC") else 0,
             "driver_id": driver.get("driverId"),
             "driver_name": f"{driver.get('name', '')} {driver.get('surname', '')}".strip(),
+            "team_id": team.get("teamId"),
             "team_name": team.get("teamName") or team.get("name"),
             "grid": entry.get("grid"),
             "points": entry.get("points"),
             "time": entry.get("time"),
             "retired": entry.get("retired"),
         })
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    df["position"] = pd.to_numeric(df["position"], errors="coerce")
+    return df

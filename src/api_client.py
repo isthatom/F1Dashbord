@@ -24,6 +24,10 @@ class F1ApiError(Exception):
     """Raised when the F1 API can't give us usable data after retries."""
 
 
+class F1ApiNotFoundError(F1ApiError):
+    """Raised when an API resource is not available (HTTP 404)."""
+
+
 class F1ApiClient:
     """A small, friendly client for f1api.dev."""
 
@@ -47,6 +51,14 @@ class F1ApiClient:
                 time.sleep(REQUEST_DELAY)  # be a good citizen on a free API
                 return response.json()
             except requests.exceptions.RequestException as exc:
+                status_code = exc.response.status_code if exc.response is not None else None
+                # Retrying a missing or invalid resource cannot make it appear.
+                # Keep 429 retryable because the API may accept it after backoff.
+                if status_code == 404:
+                    raise F1ApiNotFoundError(f"Resource not available at {url}") from exc
+                if status_code is not None and 400 <= status_code < 500 and status_code != 429:
+                    raise F1ApiError(f"Request failed for {url}: {exc}") from exc
+
                 last_error = exc
                 logger.warning("Request failed (%s): %s", url, exc)
                 time.sleep(1 * attempt)  # simple backoff
@@ -81,6 +93,10 @@ class F1ApiClient:
     def get_race_results(self, round_number: int, season: str | None = None) -> dict:
         season = season or self.season
         return self._get(f"{season}/{round_number}/race")
+
+    def get_latest_race_results(self) -> dict:
+        """Return results for the latest completed race in the current season."""
+        return self._get("current/last/race")
 
     def get_circuits(self) -> dict:
         return self._get("circuits")

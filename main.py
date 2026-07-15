@@ -2,17 +2,24 @@
 Entry point for the F1 data pipeline.
 
 Usage:
-    python main.py                     # pulls the current season
-    python main.py --season 2023       # pulls a specific season
-    python main.py --no-race-results   # skip per-race results (faster)
+    python main.py                              # uses config.yaml season range
+    python main.py --season 2023                # single season only
+    python main.py --start-year 2020 --end-year 2024
+    python main.py --no-race-results            # skip per-race results
+    python main.py --export-csv                 # also write legacy CSV files
 
-Run this any time you want to refresh the CSVs that Power BI reads from.
+Run this any time you want to refresh data/f1.db for Power BI.
 """
 
 import argparse
 import logging
 
-from config.settings import DEFAULT_SEASON
+from config.settings import (
+    EXPORT_CSV,
+    FETCH_RACE_RESULTS,
+    SEASON_END_YEAR,
+    SEASON_START_YEAR,
+)
 from src.fetch_data import run
 
 
@@ -20,13 +27,30 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Fetch F1 data and prepare it for Power BI.")
     parser.add_argument(
         "--season",
-        default=DEFAULT_SEASON,
-        help="Season to fetch, e.g. '2023', or 'current' (default: %(default)s)",
+        default=None,
+        help="Fetch a single season only (e.g. '2023' or 'current'). "
+             "Overrides the season range in config.yaml.",
+    )
+    parser.add_argument(
+        "--start-year",
+        type=int,
+        default=None,
+        help=f"First season year to fetch (config default: {SEASON_START_YEAR}).",
+    )
+    parser.add_argument(
+        "--end-year",
+        default=None,
+        help=f"Last season year to fetch, or 'current' (config default: {SEASON_END_YEAR}).",
     )
     parser.add_argument(
         "--no-race-results",
         action="store_true",
         help="Skip fetching per-race results (fewer API calls, faster run).",
+    )
+    parser.add_argument(
+        "--export-csv",
+        action="store_true",
+        help="Also export legacy CSV files to data/processed/ (config can enable this too).",
     )
     parser.add_argument(
         "--verbose",
@@ -45,7 +69,17 @@ def main():
         datefmt="%H:%M:%S",
     )
 
-    run(season=args.season, fetch_race_results=not args.no_race_results)
+    end_year = args.end_year
+    if end_year is not None and end_year != "current":
+        end_year = int(end_year)
+
+    run(
+        season=args.season,
+        start_year=args.start_year,
+        end_year=end_year,
+        fetch_race_results=FETCH_RACE_RESULTS and not args.no_race_results,
+        export_csv=args.export_csv or EXPORT_CSV,
+    )
 
 
 if __name__ == "__main__":
