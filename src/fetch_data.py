@@ -48,6 +48,22 @@ def _record_upsert(summary: RunSummary | None, table: str, rows: int) -> None:
         summary.record_table(table, rows)
 
 
+def _upsert_drivers_from_standings(db: F1Database, standings_df: pd.DataFrame) -> int:
+    """Create minimal driver rows so standings can load after a drivers API failure."""
+    if standings_df.empty or "driver_id" not in standings_df.columns:
+        return 0
+
+    drivers_df = pd.DataFrame({
+        "driver_id": standings_df["driver_id"],
+        "full_name": standings_df.get("driver_name"),
+        "nationality": None,
+        "birthday": None,
+        "number": None,
+        "shortname": None,
+    }).dropna(subset=["driver_id"])
+    return db.upsert_drivers(drivers_df)
+
+
 def _fetch_global_circuits(
     client: F1ApiClient,
     db: F1Database,
@@ -140,6 +156,7 @@ def _fetch_season(
         if SAVE_RAW_JSON:
             _save_raw_json(f"{season}_driver_standings", raw_driver_standings)
         driver_standings_df = dp.driver_standings_to_df(raw_driver_standings, resolved_season)
+        _upsert_drivers_from_standings(db, driver_standings_df)
         rows = db.upsert_driver_standings(driver_standings_df)
         _record_upsert(summary, "driver_standings", rows)
         if export_csv:

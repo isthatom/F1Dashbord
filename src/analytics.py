@@ -54,20 +54,20 @@ def compute_rolling_position(
     if race_results.empty:
         return _empty_rolling_position()
 
-    finished = race_results[race_results["finished"] == 1].copy()
-    finished = finished.dropna(subset=["position"])
-    finished = finished.sort_values(["season", "driver_id", "round"])
+    df = race_results[["season", "round", "driver_id", "finished", "position"]].copy()
+    df = df.sort_values(["season", "driver_id", "round"])
+    df["finished_position"] = df["position"].where(df["finished"] == 1)
 
-    finished["rolling_avg_position"] = (
-        finished.groupby(["season", "driver_id"])["position"]
+    df["rolling_avg_position"] = (
+        df.groupby(["season", "driver_id"])["finished_position"]
         .transform(lambda s: s.rolling(window=window, min_periods=1).mean())
     )
-    finished["races_in_window"] = (
-        finished.groupby(["season", "driver_id"])["position"]
+    df["races_in_window"] = (
+        df.groupby(["season", "driver_id"])["finished_position"]
         .transform(lambda s: s.rolling(window=window, min_periods=1).count())
     )
 
-    return finished[
+    return df[
         ["season", "round", "driver_id", "rolling_avg_position", "races_in_window"]
     ]
 
@@ -157,10 +157,21 @@ def run_analytics(db: F1Database | None = None) -> dict[str, int]:
     """
     db = db or F1Database()
     race_results = db.read_race_results()
+    rolling_position = compute_rolling_position(race_results)
+    if not race_results.empty:
+        finished_keys = race_results.loc[
+            race_results["finished"] == 1,
+            ["season", "round", "driver_id"],
+        ]
+        rolling_position = rolling_position.merge(
+            finished_keys,
+            on=["season", "round", "driver_id"],
+            how="inner",
+        )
 
     metrics = {
         "analytics_points_trend": compute_points_trend(race_results),
-        "analytics_rolling_position": compute_rolling_position(race_results),
+        "analytics_rolling_position": rolling_position,
         "analytics_recent_form": compute_recent_form(race_results),
         "analytics_teammate_comparison": compute_teammate_comparison(race_results),
     }

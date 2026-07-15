@@ -238,7 +238,32 @@ class F1Database:
             "season", "round", "driver_id", "team_id", "position", "finished",
             "grid", "points", "time", "retired",
         ]
+        df = df.copy()
+        for col in cols:
+            if col not in df.columns:
+                df[col] = None
+        self._insert_missing_race_result_dependencies(df)
         return self._upsert(df[cols], "race_results", ["season", "round", "driver_id"])
+
+    def _insert_missing_race_result_dependencies(self, df: pd.DataFrame) -> None:
+        """Insert placeholder dimension rows needed by race_results foreign keys."""
+        with self.connect() as conn:
+            for driver_id in df["driver_id"].dropna().drop_duplicates():
+                conn.execute(
+                    "INSERT OR IGNORE INTO drivers (driver_id) VALUES (?)",
+                    (driver_id,),
+                )
+            for team_id in df["team_id"].dropna().drop_duplicates():
+                conn.execute(
+                    "INSERT OR IGNORE INTO teams (team_id) VALUES (?)",
+                    (team_id,),
+                )
+            races = df[["season", "round"]].dropna().drop_duplicates()
+            for row in races.itertuples(index=False):
+                conn.execute(
+                    "INSERT OR IGNORE INTO races (season, round) VALUES (?, ?)",
+                    (int(row.season), int(row.round)),
+                )
 
     def upsert_driver_standings(self, df: pd.DataFrame) -> int:
         if df.empty:

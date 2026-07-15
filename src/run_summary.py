@@ -27,6 +27,10 @@ class RunSummary:
     _started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     _timer_start: float = field(default_factory=perf_counter)
 
+    @property
+    def error_count(self) -> int:
+        return len(self.errors)
+
     def set_seasons(self, seasons: list[str]) -> None:
         self.seasons = seasons
 
@@ -64,7 +68,7 @@ class RunSummary:
             "seasons": self.seasons,
             "tables": self.tables,
             "errors": self.errors,
-            "error_count": len(self.errors),
+            "error_count": self.error_count,
         }
 
     def write(self, path: Path | None = None) -> Path:

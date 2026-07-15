@@ -10,6 +10,12 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
+DRIVER_COLUMNS = ["driver_id", "full_name", "nationality", "birthday", "number", "shortname", "team_id"]
+RACE_RESULT_COLUMNS = [
+    "season", "round", "race_name", "position", "finished", "driver_id",
+    "driver_name", "team_id", "team_name", "grid", "points", "time", "retired",
+]
+
 
 def circuits_to_df(raw: dict) -> pd.DataFrame:
     """Flatten the /circuits response into one row per circuit."""
@@ -39,7 +45,7 @@ def drivers_to_df(raw: dict) -> pd.DataFrame:
             "shortname": d.get("shortName"),
             "team_id": d.get("teamId") or d.get("team"),
         })
-    return pd.DataFrame(rows)
+    return pd.DataFrame(rows, columns=DRIVER_COLUMNS)
 
 
 def teams_to_df(raw: dict) -> pd.DataFrame:
@@ -163,6 +169,6 @@ def race_results_to_df(raw: dict, season: str | int, round_number: int) -> pd.Da
             "time": entry.get("time"),
             "retired": entry.get("retired"),
         })
-    df = pd.DataFrame(rows)
+    df = pd.DataFrame(rows, columns=RACE_RESULT_COLUMNS)
     df["position"] = pd.to_numeric(df["position"], errors="coerce")
     return df
