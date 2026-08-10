@@ -7,6 +7,7 @@ metrics, and writes them back as dedicated analytics tables.
 """
 
 import logging
+from typing import Any
 
 import pandas as pd
 
@@ -36,7 +37,14 @@ def compute_points_trend(race_results: pd.DataFrame) -> pd.DataFrame:
     df["season_avg_points_per_race"] = df["cumulative_points"] / df["races_completed"]
 
     return df[
-        ["season", "round", "driver_id", "race_points", "cumulative_points", "season_avg_points_per_race"]
+        [
+            "season",
+            "round",
+            "driver_id",
+            "race_points",
+            "cumulative_points",
+            "season_avg_points_per_race",
+        ]
     ]
 
 
@@ -116,7 +124,7 @@ def compute_teammate_comparison(race_results: pd.DataFrame) -> pd.DataFrame:
     df["points"] = df["points"].fillna(0)
 
     rows = []
-    for (_, _, team_id), group in df.groupby(["season", "round", "team_id"]):
+    for (_, _, _team_id), group in df.groupby(["season", "round", "team_id"]):
         drivers = group.dropna(subset=["driver_id"]).reset_index(drop=True)
         if len(drivers) != 2:
             continue
@@ -131,7 +139,7 @@ def compute_teammate_comparison(race_results: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def _teammate_row(driver, teammate) -> dict:
+def _teammate_row(driver: pd.Series, teammate: pd.Series) -> dict[str, Any]:
     pos_adv = None
     if pd.notna(driver["position"]) and pd.notna(teammate["position"]):
         pos_adv = float(teammate["position"]) - float(driver["position"])

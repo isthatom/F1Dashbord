@@ -5,19 +5,46 @@ This is the ONLY module that knows how API field names map to table columns.
 """
 
 import logging
+from typing import Any
 
 import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-DRIVER_COLUMNS = ["driver_id", "full_name", "nationality", "birthday", "number", "shortname", "team_id"]
+DRIVER_COLUMNS = [
+    "driver_id",
+    "full_name",
+    "nationality",
+    "birthday",
+    "number",
+    "shortname",
+    "team_id",
+]
 RACE_RESULT_COLUMNS = [
-    "season", "round", "race_name", "position", "finished", "driver_id",
-    "driver_name", "team_id", "team_name", "grid", "points", "time", "retired",
+    "season",
+    "round",
+    "race_name",
+    "position",
+    "finished",
+    "driver_id",
+    "driver_name",
+    "team_id",
+    "team_name",
+    "grid",
+    "points",
+    "time",
+    "retired",
 ]
 
 
-def circuits_to_df(raw: dict) -> pd.DataFrame:
+def _dataframe_from_rows(rows: list[dict[str, Any]], columns: list[str]) -> pd.DataFrame:
+    """Create a DataFrame while preserving explicit None values."""
+    if not rows:
+        return pd.DataFrame(columns=columns)
+    return pd.DataFrame(rows, columns=columns, dtype=object)
+
+
+def circuits_to_df(raw: dict[str, Any]) -> pd.DataFrame:
     """Flatten the /circuits response into one row per circuit."""
     records = raw.get("circuits", raw if isinstance(raw, list) else [])
     rows = []
@@ -28,10 +55,13 @@ def circuits_to_df(raw: dict) -> pd.DataFrame:
             "city": c.get("city"),
             "country": c.get("country"),
         })
-    return pd.DataFrame(rows)
+    return _dataframe_from_rows(
+        rows,
+        ["circuit_id", "circuit_name", "city", "country"],
+    )
 
 
-def drivers_to_df(raw: dict) -> pd.DataFrame:
+def drivers_to_df(raw: dict[str, Any]) -> pd.DataFrame:
     """Flatten the /drivers response into one row per driver."""
     records = raw.get("drivers", raw if isinstance(raw, list) else [])
     rows = []
@@ -45,10 +75,10 @@ def drivers_to_df(raw: dict) -> pd.DataFrame:
             "shortname": d.get("shortName"),
             "team_id": d.get("teamId") or d.get("team"),
         })
-    return pd.DataFrame(rows, columns=DRIVER_COLUMNS)
+    return _dataframe_from_rows(rows, DRIVER_COLUMNS)
 
 
-def teams_to_df(raw: dict) -> pd.DataFrame:
+def teams_to_df(raw: dict[str, Any]) -> pd.DataFrame:
     """Flatten the /teams response into one row per constructor."""
     records = raw.get("teams", raw if isinstance(raw, list) else [])
     rows = []
@@ -61,10 +91,20 @@ def teams_to_df(raw: dict) -> pd.DataFrame:
             "constructors_championships": t.get("constructorsChampionships"),
             "drivers_championships": t.get("driversChampionships"),
         })
-    return pd.DataFrame(rows)
+    return _dataframe_from_rows(
+        rows,
+        [
+            "team_id",
+            "team_name",
+            "nationality",
+            "first_appearance",
+            "constructors_championships",
+            "drivers_championships",
+        ],
+    )
 
 
-def races_to_df(raw: dict, season: str | int | None = None) -> pd.DataFrame:
+def races_to_df(raw: dict[str, Any], season: str | int | None = None) -> pd.DataFrame:
     """
     Flatten the races-calendar response into one row per race.
 
@@ -90,7 +130,20 @@ def races_to_df(raw: dict, season: str | int | None = None) -> pd.DataFrame:
             "city": circuit.get("city"),
             "country": circuit.get("country"),
         })
-    return pd.DataFrame(rows)
+    return _dataframe_from_rows(
+        rows,
+        [
+            "season",
+            "round",
+            "race_id",
+            "race_name",
+            "race_date",
+            "circuit_id",
+            "circuit_name",
+            "city",
+            "country",
+        ],
+    )
 
 
 def circuits_from_races_df(races_df: pd.DataFrame) -> pd.DataFrame:
@@ -104,7 +157,7 @@ def circuits_from_races_df(races_df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def driver_standings_to_df(raw: dict, season: str | int) -> pd.DataFrame:
+def driver_standings_to_df(raw: dict[str, Any], season: str | int) -> pd.DataFrame:
     """Flatten the drivers' championship standings."""
     records = raw.get("drivers_championship", raw.get("standings", []))
     rows = []
@@ -120,10 +173,13 @@ def driver_standings_to_df(raw: dict, season: str | int) -> pd.DataFrame:
             "points": entry.get("points"),
             "wins": entry.get("wins"),
         })
-    return pd.DataFrame(rows)
+    return _dataframe_from_rows(
+        rows,
+        ["season", "position", "driver_id", "driver_name", "team_name", "points", "wins"],
+    )
 
 
-def constructor_standings_to_df(raw: dict, season: str | int) -> pd.DataFrame:
+def constructor_standings_to_df(raw: dict[str, Any], season: str | int) -> pd.DataFrame:
     """Flatten the constructors' championship standings."""
     records = raw.get("constructors_championship", raw.get("standings", []))
     rows = []
@@ -137,10 +193,17 @@ def constructor_standings_to_df(raw: dict, season: str | int) -> pd.DataFrame:
             "points": entry.get("points"),
             "wins": entry.get("wins"),
         })
-    return pd.DataFrame(rows)
+    return _dataframe_from_rows(
+        rows,
+        ["season", "position", "team_id", "team_name", "points", "wins"],
+    )
 
 
-def race_results_to_df(raw: dict, season: str | int, round_number: int) -> pd.DataFrame:
+def race_results_to_df(
+    raw: dict[str, Any],
+    season: str | int,
+    round_number: int,
+) -> pd.DataFrame:
     """
     Flatten a single race's results into one row per finishing driver.
 
@@ -169,6 +232,6 @@ def race_results_to_df(raw: dict, season: str | int, round_number: int) -> pd.Da
             "time": entry.get("time"),
             "retired": entry.get("retired"),
         })
-    df = pd.DataFrame(rows, columns=RACE_RESULT_COLUMNS)
+    df = _dataframe_from_rows(rows, RACE_RESULT_COLUMNS)
     df["position"] = pd.to_numeric(df["position"], errors="coerce")
     return df

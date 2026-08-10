@@ -1,74 +1,82 @@
-# F1 Data Pipeline → Power BI Dashboard
+# F1 Data Pipeline to Power BI Dashboard
 
-A project that pulls Formula 1 data from the free,
-open [f1api.dev](https://f1api.dev) API using Python, cleans it into a
-SQLite star schema, and hands it off to Power BI for an interactive dashboard.
+This project pulls Formula 1 data from the free, open
+[f1api.dev](https://f1api.dev) API, transforms the nested JSON responses into
+tabular data, stores the result in SQLite, and exposes that database to Power BI.
 
-## What this project does
+The pipeline supports multi-season incremental loads, derived analytics tables,
+structured run summaries, automated GitHub Actions refreshes, linting/type
+checks, tests, and Docker-based execution.
 
-- Making HTTP requests to a real REST API (`requests`)
-- Handling retries, timeouts, and errors gracefully
-- Turning nested JSON into clean tabular data (`pandas`)
-- Storing data in a Power BI-friendly SQLite star schema
-- Incrementally loading multi-season historical data
-- Structuring a Python project so it's readable and maintainable
+## Project Structure
 
-## Project structure
-
-```
+```text
 f1-powerbi-project/
-├── config.yaml              # tunables: season range, API settings, pipeline flags
+├── .github/workflows/
+│   ├── quality.yml          # PR/push lint, type check, and tests
+│   └── update-data.yml      # scheduled/manual data refresh
 ├── config/
-│   └── settings.py          # loads config.yaml; exposes paths and helpers
+│   ├── __init__.py
+│   └── settings.py          # loads config.yaml and exposes paths/settings
 ├── src/
-│   ├── api_client.py        # talks to f1api.dev — the ONLY file that does
-│   ├── data_processor.py    # flattens JSON responses into DataFrames
-│   ├── database.py          # SQLite star schema + upsert/incremental helpers
-│   └── fetch_data.py        # orchestrates: fetch -> process -> save to DB
+│   ├── __init__.py
+│   ├── analytics.py         # derived metrics written to analytics tables
+│   ├── api_client.py        # f1api.dev client with retries and errors
+│   ├── data_processor.py    # JSON-to-DataFrame transformations
+│   ├── database.py          # SQLite schema and upsert helpers
+│   ├── fetch_data.py        # pipeline orchestration
+│   └── run_summary.py       # logs/run_summary.json writer
 ├── data/
-│   ├── raw/                 # raw JSON dumps (debugging aid, gitignored)
-│   ├── processed/           # optional legacy CSV export (--export-csv)
-│   └── f1.db                # SQLite database — primary output for Power BI
-├── powerbi/
-│   └── SETUP_GUIDE.md       # connecting Power BI to the data source
-├── main.py                  # entry point — run this
-├── requirements.txt
-└── .gitignore
+│   ├── raw/                 # optional raw JSON debug files
+│   ├── processed/           # optional CSV exports
+│   └── f1.db                # SQLite output for Power BI
+├── logs/
+│   └── run_summary.json     # latest structured run summary
+├── tests/
+├── Dockerfile
+├── pyproject.toml
+├── config.yaml
+├── main.py
+└── requirements.txt
 ```
-
-Each piece has one job. If something about the API changes, you touch
-`api_client.py`. If a column looks wrong in Power BI, you touch
-`data_processor.py`. Schema or load logic changes go in `database.py` /
-`fetch_data.py`.
 
 ## Setup
 
-1. **Clone / open this folder**, then create a virtual environment (optional
-   but recommended):
+```bash
+python -m venv .venv
+source .venv/bin/activate      # Windows: .venv\Scripts\activate
+python -m pip install -e ".[dev]"
+```
 
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate      # Windows: .venv\Scripts\activate
-   ```
-2. **Install dependencies:**
+For runtime-only installs, use:
 
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. **Run the pipeline:**
+```bash
+python -m pip install -e .
+```
 
-   ```bash
-   python main.py
-   ```
+## Running The Pipeline
 
-   On first run this builds `data/f1.db` from your configured season range.
-   Subsequent runs only fetch data that is not already in the database.
-4. **Open Power BI** and connect to `data/f1.db` (see schema below).
+```bash
+python main.py
+```
 
-## Configuration (`config.yaml`)
+Useful options:
 
-All tunables live in `config.yaml` at the project root. CLI flags override
-these values when provided.
+```bash
+python main.py --season 2024
+python main.py --start-year 2020 --end-year 2024
+python main.py --end-year current
+python main.py --no-race-results
+python main.py --export-csv
+python main.py --verbose
+```
+
+The main output is `data/f1.db`. The latest structured execution summary is
+written to `logs/run_summary.json`.
+
+## Configuration
+
+Runtime settings live in `config.yaml`:
 
 ```yaml
 api:
@@ -79,110 +87,116 @@ api:
 
 seasons:
   start_year: 2018
-  end_year: current   # "current" appends the live season after historical years
+  end_year: current
 
 pipeline:
   fetch_race_results: true
   save_raw_json: true
-  export_csv: false   # set true to also write data/processed/*.csv
+  export_csv: false
 ```
 
-**Season range behaviour**
+CLI arguments override the config file for a single run.
 
-| Setting | Result |
-|---------|--------|
-| `start_year: 2018`, `end_year: 2025` | Fetches 2018, 2019, …, 2025 |
-| `end_year: current` | Fetches 2018 … (calendar year − 1), then `current` |
-| `--season 2023` | Single season only; ignores the config range |
-| `--start-year 2020 --end-year 2024` | Overrides config range |
+## Database Tables
 
-## CLI options
+Core tables:
+
+- `drivers`
+- `teams`
+- `circuits`
+- `races`
+- `race_results`
+- `driver_standings`
+- `constructor_standings`
+
+Analytics tables:
+
+- `analytics_points_trend`
+- `analytics_rolling_position`
+- `analytics_recent_form`
+- `analytics_teammate_comparison`
+
+Power BI should connect to `data/f1.db` and can infer most relationships from
+the schema foreign keys.
+
+## Automation
+
+`.github/workflows/update-data.yml` runs on a weekly schedule and can also be
+started manually from the GitHub Actions UI with `workflow_dispatch`.
+
+The workflow:
+
+1. Checks out the repo.
+2. Installs the project with dev dependencies.
+3. Runs Ruff formatting checks and linting.
+4. Runs mypy.
+5. Runs pytest.
+6. Executes `python main.py`.
+7. Commits `data/f1.db` and `logs/run_summary.json` back to the same branch if
+   either file changed.
+
+The workflow uses the built-in `GITHUB_TOKEN`. It needs:
+
+```yaml
+permissions:
+  contents: write
+```
+
+Repository settings must allow GitHub Actions to write to the repository. If the
+branch is protected, allow the workflow/bot to push or route updates through a
+pull request instead.
+
+## Linting, Formatting, Type Checks, And Tests
+
+Run the same quality gates locally:
 
 ```bash
-python main.py                                    # config.yaml season range
-python main.py --season 2023                      # single season
-python main.py --start-year 2020 --end-year 2024  # custom range
-python main.py --end-year current                 # through last year + current
-python main.py --no-race-results                  # skip per-race results
-python main.py --export-csv                       # also write legacy CSV files
-python main.py --verbose                          # debug logging
+ruff format --check .
+ruff check .
+mypy config src main.py
+pytest
 ```
 
-## Database schema (star schema)
+To auto-format:
 
-Primary output: **`data/f1.db`**
-
-### Dimension tables
-
-| Table | Primary key | Description |
-|-------|-------------|-------------|
-| `drivers` | `driver_id` | Driver master data (name, nationality, number) |
-| `teams` | `team_id` | Constructor master data |
-| `circuits` | `circuit_id` | Circuit name, city, country |
-| `races` | `(season, round)` | Race calendar; FK → `circuits.circuit_id` |
-
-### Fact table
-
-| Table | Primary key | Foreign keys | Measures |
-|-------|-------------|--------------|----------|
-| `race_results` | `(season, round, driver_id)` | → `races`, `drivers`, `teams` | `position`, `grid`, `points`, `time`, `finished`, `retired` |
-
-### Supplementary tables (not core star schema, but useful in reports)
-
-| Table | Primary key |
-|-------|-------------|
-| `driver_standings` | `(season, driver_id)` |
-| `constructor_standings` | `(season, team_id)` |
-
-**Power BI relationships** (auto-detected by the SQLite connector):
-
-```
-circuits ──< races ──< race_results >── drivers
-                              └──> teams
-drivers ──< driver_standings
-teams   ──< constructor_standings
+```bash
+ruff format .
 ```
 
-Column names are prefixed by role (`driver_id`, `team_id`, `circuit_id`) so
-there are no ambiguous joins.
+`.github/workflows/quality.yml` runs the quality gates on pull requests and on
+pushes to `main`.
 
-## Incremental loading
+## Docker
 
-The pipeline avoids re-fetching data that is already stored:
+Build the image:
 
-1. **Race results** — before each `/{year}/{round}/race` call, the pipeline
-   checks `race_results` for that `(season, round)`. If rows exist, the round
-   is skipped.
-2. **Current season** — standings and dimension tables are refreshed every
-   run (they change as the season progresses). Race results use the same
-   incremental check, so newly completed rounds are picked up automatically.
-3. **Historical seasons** — once all rounds for a year are in the database,
-   re-running skips those API calls entirely.
+```bash
+docker build -t f1-powerbi-pipeline .
+```
 
-Re-running `python main.py` is safe: it is an incremental sync, not a full
-refresh.
+Run the pipeline inside the container:
 
-## Connecting Power BI
+```bash
+docker run --rm f1-powerbi-pipeline
+```
 
-1. **Get data** → **Database** → **SQLite database**
-2. Point to `data/f1.db` in this project folder
-3. Select the tables you need; Power BI should infer the relationships above
-4. Refresh the dataset after running `python main.py`
+To persist generated outputs to the local checkout:
 
-Legacy CSV export is still available via `export_csv: true` in `config.yaml`
-or `--export-csv` on the command line.
+```bash
+docker run --rm -v "$PWD/data:/app/data" -v "$PWD/logs:/app/logs" f1-powerbi-pipeline
+```
 
-## Troubleshooting API field names
+On Windows PowerShell:
 
-This project is wired up against f1api.dev's documented endpoint shape (see
-[f1api.dev/docs](https://f1api.dev/docs)). If a table comes out empty:
+```powershell
+docker run --rm -v "${PWD}\data:/app/data" -v "${PWD}\logs:/app/logs" f1-powerbi-pipeline
+```
 
-1. Open the matching raw JSON file in `data/raw/`
-2. Compare field names against `src/data_processor.py`
-3. Adjust the `.get(...)` calls there — everything else stays unchanged
+Docker is not required by the scheduled GitHub Actions workflow; the workflow
+runs Python directly for faster setup. The Dockerfile is useful for local
+repeatability or for moving the pipeline to another scheduler later.
 
-## Phase roadmap
+## Notes For Power BI
 
-- **Phase 1 (this release):** SQLite star schema, multi-season incremental load, config file
-- **Phase 2:** (planned) tests, CI/CD, Docker
-- **Phase 3:** (planned) analytics layer
+Connect Power BI to `data/f1.db` using a SQLite connector. Refresh Power BI
+after the pipeline runs locally, in Docker, or through GitHub Actions.

@@ -15,6 +15,7 @@ SQLite connector can auto-detect relationships.
 import logging
 import sqlite3
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -149,8 +150,8 @@ CREATE TABLE IF NOT EXISTS analytics_teammate_comparison (
 class F1Database:
     """Thin wrapper around the SQLite database file."""
 
-    def __init__(self, db_path: Path = DB_PATH):
-        self.db_path = db_path
+    def __init__(self, db_path: Path | str = DB_PATH) -> None:
+        self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
     def connect(self) -> sqlite3.Connection:
@@ -260,9 +261,13 @@ class F1Database:
                 )
             races = df[["season", "round"]].dropna().drop_duplicates()
             for row in races.itertuples(index=False):
+                season_value = row.season
+                round_value = row.round
+                if season_value is None or round_value is None:
+                    continue
                 conn.execute(
                     "INSERT OR IGNORE INTO races (season, round) VALUES (?, ?)",
-                    (int(row.season), int(row.round)),
+                    (int(str(season_value)), int(str(round_value))),
                 )
 
     def upsert_driver_standings(self, df: pd.DataFrame) -> int:
@@ -304,7 +309,9 @@ class F1Database:
                 f"ON CONFLICT({conflict_clause}) DO NOTHING"
             )
 
-        rows = [tuple(None if pd.isna(v) else v for v in row) for row in df.itertuples(index=False)]
+        rows: list[tuple[Any, ...]] = [
+            tuple(None if pd.isna(v) else v for v in row) for row in df.itertuples(index=False)
+        ]
 
         with self.connect() as conn:
             conn.executemany(sql, rows)

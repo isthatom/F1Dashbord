@@ -1,7 +1,7 @@
 """Unit tests for src/analytics.py using small hand-built DataFrames."""
 
-import pytest
 import pandas as pd
+import pytest
 
 from src import analytics as an
 

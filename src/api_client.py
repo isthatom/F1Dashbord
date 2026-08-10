@@ -11,11 +11,13 @@ the place? Two reasons, both worth learning as habits:
 Docs: https://f1api.dev/docs
 """
 
-import time
 import logging
+import time
+from typing import Any
+
 import requests
 
-from config.settings import BASE_URL, REQUEST_TIMEOUT, REQUEST_DELAY, MAX_RETRIES
+from config.settings import BASE_URL, MAX_RETRIES, REQUEST_DELAY, REQUEST_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +33,7 @@ class F1ApiNotFoundError(F1ApiError):
 class F1ApiClient:
     """A small, friendly client for f1api.dev."""
 
-    def __init__(self, base_url: str = BASE_URL, season: str = "current"):
+    def __init__(self, base_url: str = BASE_URL, season: str = "current") -> None:
         self.base_url = base_url.rstrip("/")
         self.season = season
         self.session = requests.Session()
@@ -39,7 +41,7 @@ class F1ApiClient:
     # -----------------------------------------------------------------
     # Low-level request helper — everything else calls this
     # -----------------------------------------------------------------
-    def _get(self, path: str) -> dict:
+    def _get(self, path: str) -> dict[str, Any]:
         url = f"{self.base_url}/{path.lstrip('/')}"
 
         last_error = None
@@ -68,35 +70,35 @@ class F1ApiClient:
     # -----------------------------------------------------------------
     # Public endpoints
     # -----------------------------------------------------------------
-    def get_drivers(self, season: str | None = None) -> dict:
+    def get_drivers(self, season: str | None = None) -> dict[str, Any]:
         season = season or self.season
         return self._get(f"{season}/drivers")
 
-    def get_teams(self, season: str | None = None) -> dict:
+    def get_teams(self, season: str | None = None) -> dict[str, Any]:
         season = season or self.season
         return self._get(f"{season}/teams")
 
-    def get_races(self, season: str | None = None) -> dict:
+    def get_races(self, season: str | None = None) -> dict[str, Any]:
         # NOTE: the races endpoint is just /api/{season}, not /api/{season}/races
         # (confirmed against https://f1api.dev/docs/races).
         season = season or self.season
         return self._get(f"{season}")
 
-    def get_driver_standings(self, season: str | None = None) -> dict:
+    def get_driver_standings(self, season: str | None = None) -> dict[str, Any]:
         season = season or self.season
         return self._get(f"{season}/drivers-championship")
 
-    def get_constructor_standings(self, season: str | None = None) -> dict:
+    def get_constructor_standings(self, season: str | None = None) -> dict[str, Any]:
         season = season or self.season
         return self._get(f"{season}/constructors-championship")
 
-    def get_race_results(self, round_number: int, season: str | None = None) -> dict:
+    def get_race_results(self, round_number: int, season: str | None = None) -> dict[str, Any]:
         season = season or self.season
         return self._get(f"{season}/{round_number}/race")
 
-    def get_latest_race_results(self) -> dict:
+    def get_latest_race_results(self) -> dict[str, Any]:
         """Return results for the latest completed race in the current season."""
         return self._get("current/last/race")
 
-    def get_circuits(self) -> dict:
+    def get_circuits(self) -> dict[str, Any]:
         return self._get("circuits")

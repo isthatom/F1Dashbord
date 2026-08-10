@@ -4,7 +4,6 @@ import pandas as pd
 
 from src import data_processor as dp
 
-
 # ---------------------------------------------------------------------------
 # Empty / missing responses
 # ---------------------------------------------------------------------------
@@ -154,7 +153,13 @@ def test_race_results_to_df_null_position():
 def test_races_to_df_current_season_uses_race_key():
     raw = {
         "season": 2026,
-        "race": [{"round": 1, "raceName": "Australian GP", "circuit": {"circuitId": "albert_park"}}],
+        "race": [
+            {
+                "round": 1,
+                "raceName": "Australian GP",
+                "circuit": {"circuitId": "albert_park"},
+            }
+        ],
     }
     df = dp.races_to_df(raw)
     assert len(df) == 1
@@ -163,8 +168,18 @@ def test_races_to_df_current_season_uses_race_key():
 
 def test_circuits_from_races_df_deduplicates():
     races = pd.DataFrame([
-        {"circuit_id": "monaco", "circuit_name": "Monaco", "city": "Monte Carlo", "country": "Monaco"},
-        {"circuit_id": "monaco", "circuit_name": "Monaco", "city": "Monte Carlo", "country": "Monaco"},
+        {
+            "circuit_id": "monaco",
+            "circuit_name": "Monaco",
+            "city": "Monte Carlo",
+            "country": "Monaco",
+        },
+        {
+            "circuit_id": "monaco",
+            "circuit_name": "Monaco",
+            "city": "Monte Carlo",
+            "country": "Monaco",
+        },
         {"circuit_id": None, "circuit_name": None, "city": None, "country": None},
     ])
     circuits = dp.circuits_from_races_df(races)

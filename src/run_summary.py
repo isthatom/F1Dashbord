@@ -8,9 +8,10 @@ for monitoring and debugging.
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from time import perf_counter
+from typing import Any
 
 from config.settings import RUN_SUMMARY_PATH
 
@@ -23,8 +24,8 @@ class RunSummary:
 
     seasons: list[str] = field(default_factory=list)
     tables: dict[str, int] = field(default_factory=dict)
-    errors: list[dict] = field(default_factory=list)
-    _started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    errors: list[dict[str, Any]] = field(default_factory=list)
+    _started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     _timer_start: float = field(default_factory=perf_counter)
 
     @property
@@ -32,7 +33,7 @@ class RunSummary:
         return len(self.errors)
 
     def set_seasons(self, seasons: list[str]) -> None:
-        self.seasons = seasons
+        self.seasons = [str(season) for season in seasons]
 
     def record_table(self, table: str, rows: int) -> None:
         if rows <= 0:
@@ -48,7 +49,7 @@ class RunSummary:
         round_number: int | None = None,
         error_type: str = "F1ApiError",
     ) -> None:
-        entry = {
+        entry: dict[str, Any] = {
             "endpoint": endpoint,
             "message": str(message),
             "error_type": error_type,
@@ -59,11 +60,11 @@ class RunSummary:
             entry["round"] = round_number
         self.errors.append(entry)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         duration = perf_counter() - self._timer_start
         return {
             "started_at": self._started_at.isoformat(),
-            "finished_at": datetime.now(timezone.utc).isoformat(),
+            "finished_at": datetime.now(UTC).isoformat(),
             "duration_seconds": round(duration, 2),
             "seasons": self.seasons,
             "tables": self.tables,

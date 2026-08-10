@@ -23,13 +23,13 @@ from config.settings import (
 from src.fetch_data import run
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Fetch F1 data and prepare it for Power BI.")
     parser.add_argument(
         "--season",
         default=None,
         help="Fetch a single season only (e.g. '2023' or 'current'). "
-             "Overrides the season range in config.yaml.",
+        "Overrides the season range in config.yaml.",
     )
     parser.add_argument(
         "--start-year",
@@ -60,7 +60,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():
+def main() -> None:
     args = parse_args()
 
     logging.basicConfig(

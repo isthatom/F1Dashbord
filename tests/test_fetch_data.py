@@ -2,8 +2,6 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from src.api_client import F1ApiError, F1ApiNotFoundError
 from src.fetch_data import run
 
@@ -167,7 +165,6 @@ def test_run_summary_written_to_file(mock_client_cls, test_db_path, tmp_path):
     _configure_mock_client(mock_client_cls)
     summary_path = tmp_path / "run_summary.json"
 
-    from src.run_summary import RunSummary
 
     summary = run(
         season="2024",

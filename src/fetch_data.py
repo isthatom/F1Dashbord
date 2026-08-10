@@ -11,26 +11,26 @@ database at data/f1.db is what Power BI connects to.
 
 import json
 import logging
+from pathlib import Path
 
 import pandas as pd
 
 from config.settings import (
-    EXPORT_CSV,
     PROCESSED_DATA_DIR,
     RAW_DATA_DIR,
     SAVE_RAW_JSON,
     resolve_season_list,
 )
+from src import data_processor as dp
 from src.analytics import run_analytics
 from src.api_client import F1ApiClient, F1ApiError, F1ApiNotFoundError
 from src.database import F1Database
 from src.run_summary import RunSummary
-from src import data_processor as dp
 
 logger = logging.getLogger(__name__)
 
 
-def _save_raw_json(name: str, payload: dict) -> None:
+def _save_raw_json(name: str, payload: dict[str, object]) -> None:
     path = RAW_DATA_DIR / f"{name}.json"
     with open(path, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, ensure_ascii=False)
@@ -53,14 +53,16 @@ def _upsert_drivers_from_standings(db: F1Database, standings_df: pd.DataFrame) -
     if standings_df.empty or "driver_id" not in standings_df.columns:
         return 0
 
-    drivers_df = pd.DataFrame({
-        "driver_id": standings_df["driver_id"],
-        "full_name": standings_df.get("driver_name"),
-        "nationality": None,
-        "birthday": None,
-        "number": None,
-        "shortname": None,
-    }).dropna(subset=["driver_id"])
+    drivers_df = pd.DataFrame(
+        {
+            "driver_id": standings_df["driver_id"],
+            "full_name": standings_df.get("driver_name"),
+            "nationality": None,
+            "birthday": None,
+            "number": None,
+            "shortname": None,
+        }
+    ).dropna(subset=["driver_id"])
     return db.upsert_drivers(drivers_df)
 
 
@@ -110,7 +112,12 @@ def _fetch_season(
     except F1ApiError as exc:
         logger.error("Skipping drivers for %s: %s", season, exc)
         if summary:
-            summary.record_error(str(exc), endpoint=endpoint, season=season, error_type=type(exc).__name__)
+            summary.record_error(
+                str(exc),
+                endpoint=endpoint,
+                season=season,
+                error_type=type(exc).__name__,
+            )
 
     # --- Teams -----------------------------------------------------------
     endpoint = f"{season}/teams"
@@ -126,7 +133,12 @@ def _fetch_season(
     except F1ApiError as exc:
         logger.error("Skipping teams for %s: %s", season, exc)
         if summary:
-            summary.record_error(str(exc), endpoint=endpoint, season=season, error_type=type(exc).__name__)
+            summary.record_error(
+                str(exc),
+                endpoint=endpoint,
+                season=season,
+                error_type=type(exc).__name__,
+            )
 
     # --- Races (calendar) ------------------------------------------------
     endpoint = season
@@ -147,7 +159,12 @@ def _fetch_season(
     except F1ApiError as exc:
         logger.error("Skipping races for %s: %s", season, exc)
         if summary:
-            summary.record_error(str(exc), endpoint=endpoint, season=season, error_type=type(exc).__name__)
+            summary.record_error(
+                str(exc),
+                endpoint=endpoint,
+                season=season,
+                error_type=type(exc).__name__,
+            )
 
     # --- Driver standings ------------------------------------------------
     endpoint = f"{season}/drivers-championship"
@@ -164,7 +181,12 @@ def _fetch_season(
     except F1ApiError as exc:
         logger.error("Skipping driver standings for %s: %s", season, exc)
         if summary:
-            summary.record_error(str(exc), endpoint=endpoint, season=season, error_type=type(exc).__name__)
+            summary.record_error(
+                str(exc),
+                endpoint=endpoint,
+                season=season,
+                error_type=type(exc).__name__,
+            )
 
     # --- Constructor standings -------------------------------------------
     endpoint = f"{season}/constructors-championship"
@@ -182,7 +204,12 @@ def _fetch_season(
     except F1ApiError as exc:
         logger.error("Skipping constructor standings for %s: %s", season, exc)
         if summary:
-            summary.record_error(str(exc), endpoint=endpoint, season=season, error_type=type(exc).__name__)
+            summary.record_error(
+                str(exc),
+                endpoint=endpoint,
+                season=season,
+                error_type=type(exc).__name__,
+            )
 
     # --- Race-by-race results (incremental) ------------------------------
     if fetch_race_results and races_df is not None and not races_df.empty:
@@ -223,7 +250,9 @@ def _fetch_race_results_incremental(
             latest_result = client.get_latest_race_results()
             if int(latest_result.get("season", 0)) == resolved_season:
                 latest_race = latest_result.get("races", {}) or {}
-                last_completed_round = int(latest_race.get("round"))
+                latest_round = latest_race.get("round")
+                if latest_round is not None:
+                    last_completed_round = int(str(latest_round))
         except (F1ApiError, TypeError, ValueError) as exc:
             logger.warning("Could not determine the latest completed race: %s", exc)
             if summary and isinstance(exc, F1ApiError):
@@ -234,7 +263,11 @@ def _fetch_race_results_incremental(
                     error_type=type(exc).__name__,
                 )
 
-    rounds = races_df["round"].dropna().astype(int).tolist()
+    rounds = [
+        int(str(round_value))
+        for round_value in races_df["round"].dropna().tolist()
+        if round_value is not None
+    ]
     if last_completed_round is not None:
         rounds = [r for r in rounds if r <= last_completed_round]
 
@@ -258,7 +291,11 @@ def _fetch_race_results_incremental(
             if SAVE_RAW_JSON:
                 _save_raw_json(f"{season_token}_round_{round_number}_results", raw_result)
         except F1ApiNotFoundError as exc:
-            logger.info("No results available yet for %s round %s; skipping.", resolved_season, round_number)
+            logger.info(
+                "No results available yet for %s round %s; skipping.",
+                resolved_season,
+                round_number,
+            )
             if summary:
                 summary.record_error(
                     str(exc),
@@ -290,7 +327,7 @@ def run(
     end_year: str | int | None = None,
     fetch_race_results: bool = True,
     export_csv: bool = False,
-    db_path=None,
+    db_path: Path | str | None = None,
     write_summary: bool = True,
 ) -> RunSummary:
     """
