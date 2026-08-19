@@ -1,12 +1,12 @@
 # F1 Data Pipeline → Power BI Dashboard
 
-A beginner-friendly project that pulls Formula 1 data from the free,
+A project that pulls Formula 1 data from the free,
 open [f1api.dev](https://f1api.dev) API using Python, cleans it into flat
 CSV tables, and hands them off to Power BI for an interactive dashboard.
 
 No API key, no authentication — the API is free and open.
 
-## What this project teaches
+## What this project does
 
 - Making HTTP requests to a real REST API (`requests`)
 - Handling retries, timeouts, and errors gracefully
