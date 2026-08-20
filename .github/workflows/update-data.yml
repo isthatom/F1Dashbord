@@ -1,0 +1,54 @@
+name: Update F1 data
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly during the European morning. Adjust or disable outside race season.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: write
+
+jobs:
+  update-data:
+    name: Test, run pipeline, and commit generated data
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project
+        run: python -m pip install -e ".[dev]"
+
+      - name: Lint
+        run: |
+          ruff format --check .
+          ruff check .
+
+      - name: Type check
+        run: mypy config src main.py
+
+      - name: Test
+        run: pytest
+
+      - name: Run data pipeline
+        run: python main.py
+
+      - name: Commit updated data artifacts
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f data/f1.db logs/run_summary.json
+          if git diff --cached --quiet; then
+            echo "No data changes to commit."
+          else
+            git commit -m "Update F1 data"
+            git push
+          fi

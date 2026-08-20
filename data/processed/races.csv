@@ -1,0 +1,25 @@
+round,race_id,race_name,race_date,circuit_id,circuit_name,city,country
+1,australian_2026,Formula 1 Qatar Airways Australian Grand Prix,08/03/2026,albert_park,Albert Park Circuit,Melbourne,Australia
+2,chinese_2026,Formula 1 Heineken Chinese Grand Prix 2026,15/03/2026,shanghai,Shanghai International Circuit,Shanghai,China
+3,japanese_2026,Formula 1 Aramco Japanese Grand Prix 2026,29/03/2026,suzuka,Suzuka International Circuit,Suzuka,Japan
+4,bahrain_2026,Formula 1 Gulf Air Bahrain Grand Prix 2026,12/04/2026,bahrain,Bahrain International Circuit,Sakhir,Bahrain
+5,saudi_arabia_2026,Formula 1 STC Saudi Arabian Grand Prix 2026,19/04/2026,jeddah,Jeddah Corniche Circuit,Jedda,Saudi Arabia
+6,miami_2026,Formula 1 Crypto.com Miami Grand Prix 2026,03/05/2026,miami,Miami International Autodrome,Miami,United States
+7,canadian_2026,Formula 1 Lenovo Grand Prix Du Canada 2026,24/05/2026,gilles_villeneuve,Circuit Gilles Villeneuve,Montreal,Canada
+8,monaco_2026,Formula 1 Louis Vuitton Grand Prix de Monaco 2026,07/06/2026,monaco,Circuit de Monaco,Monte Carlo,Monaco
+9,catalunya_2026,Formula 1 MSC Cruises Gran Premio de Barcelona-Catalunya 2026,14/06/2026,montmelo,Circuit de Barcelona-Catalunya,Barcelona,Spain
+10,austrian_2026,Formula 1 Lenovo Austrian Grand Prix 2026,28/06/2026,red_bull_ring,Red Bull Ring,Spielberg,Austria
+11,british_2026,Formula 1 Pirelli British Grand Prix 2026,05/07/2026,silverstone,Silverstone Circuit,Silverstone,Great Britain
+12,belgian_2026,Formula 1 Belgian Grand Prix 2026,19/07/2026,spa,Circuit de Spa-Francorchamps,Stavelot,Belgium
+13,hungarian_2026,Formula 1 AWS Hungarian Grand Prix 2026,26/07/2026,hungaroring,Hungaroring,Mogyorod,Hungary
+14,dutch_2026,Formula 1 Heineken Dutch Grand Prix 2026,23/08/2026,zandvoort,Circuit Zandvoort,Zandvoort,Netherlands
+15,italian_2026,Formula 1 Pirelli Gran D'Italia 2026,06/09/2026,monza,Autodromo Nazionale Monza,Monza,Italy
+16,spanish_2026,Formula 1 Tag Heuer Gran Premio de España 2026,13/09/2026,madring,Circuito de Madring,Madrid,Spain
+17,azerbaijan_2026,Formula 1 Qatar Airways Azerbaijan Grand Prix 2026,26/09/2026,baku,Baku City Circuit,Baku,Azerbaijan
+18,singapore_2026,Formula 1 Singapore Airlanes Singapore Grand Prix 2026,11/10/2026,marina_bay,Marina Bay Street Circuit,Singapore,Singapore
+19,united_states_2026,Formula 1 MSC Cruises United States Grand Prix 2026,25/10/2026,austin,Circuit of The Americas,Austin,United States
+20,mexican_2026,Formula 1 Gran Premio de La Ciudad de México 2026,01/11/2026,hermanos_rodriguez,Autódromo Hermanos Rodríguez,Mexico City,Mexico
+21,brazilian_2026,Formula 1 MSC Cruises Grande Premio de Sao Paulo 2026,08/11/2026,interlagos,Autodromo José Carlos Pace | Interlagos,Sao Paulo,Brazil
+22,las_vegas_2026,Formula 1 Heineken Las Vegas Grand Prix 2026,22/11/2026,vegas,Las Vegas Strip Circuit,Las Vegas,United States
+23,qatar_2026,Formula 1 Qatar Airways Qatar Grand Prix 2026,29/11/2026,lusail,Lusail International Circuit,Lusail,Qatar
+24,abu_dhabi_2026,Formula 1 Etihad Airways Abu Dhabi Grand Prix 2026,06/12/2026,yas_marina,Yas Marina Circuit,Abu Dhabi,United Arab Emirates
