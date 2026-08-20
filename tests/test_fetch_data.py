@@ -2,7 +2,10 @@
 
 from unittest.mock import MagicMock, patch
 
+import pandas as pd
+
 from src.api_client import F1ApiError, F1ApiNotFoundError
+from src.database import F1Database
 from src.fetch_data import run
 
 
@@ -165,7 +168,6 @@ def test_run_summary_written_to_file(mock_client_cls, test_db_path, tmp_path):
     _configure_mock_client(mock_client_cls)
     summary_path = tmp_path / "run_summary.json"
 
-
     summary = run(
         season="2024",
         fetch_race_results=False,
@@ -179,3 +181,163 @@ def test_run_summary_written_to_file(mock_client_cls, test_db_path, tmp_path):
     assert "duration_seconds" in payload
     assert "tables" in payload
     assert "seasons" in payload
+
+
+def _seed_complete_season(db_path, season=2019, rounds=(1, 2, 3), results_rounds=None):
+    """Seed a season with races and results for every round (complete)."""
+    db = F1Database(db_path)
+    db.initialize()
+    races = pd.DataFrame(
+        [
+            {
+                "season": season,
+                "round": r,
+                "race_id": None,
+                "race_name": f"GP {r}",
+                "race_date": None,
+                "circuit_id": None,
+            }
+            for r in rounds
+        ]
+    )
+    db.upsert_races(races)
+    results_rounds = rounds if results_rounds is None else results_rounds
+    results = pd.DataFrame(
+        [
+            {
+                "season": season,
+                "round": r,
+                "driver_id": f"driver_{r}",
+                "team_id": "team_1",
+                "position": 1,
+                "finished": 1,
+                "grid": 1,
+                "points": 25,
+                "time": None,
+                "retired": None,
+            }
+            for r in results_rounds
+        ]
+    )
+    db.upsert_race_results(results)
+
+
+@patch("src.fetch_data.SAVE_RAW_JSON", False)
+@patch("src.fetch_data.F1ApiClient")
+def test_standings_fallback_does_not_wipe_driver_metadata(mock_client_cls, test_db_path):
+    _configure_mock_client(mock_client_cls)
+
+    run(
+        season="2024",
+        fetch_race_results=False,
+        db_path=test_db_path,
+        write_summary=False,
+    )
+
+    db = F1Database(test_db_path)
+    with db.connect() as conn:
+        row = conn.execute(
+            "SELECT nationality FROM drivers WHERE driver_id = 'verstappen'"
+        ).fetchone()
+    assert row[0] == "Dutch"
+
+
+@patch("src.fetch_data.SAVE_RAW_JSON", False)
+@patch("src.fetch_data.F1ApiClient")
+def test_standings_fallback_creates_placeholder_when_drivers_missing(mock_client_cls, test_db_path):
+    client = _configure_mock_client(mock_client_cls)
+    client.get_drivers.side_effect = F1ApiError("HTTP 500")
+
+    run(
+        season="2024",
+        fetch_race_results=False,
+        db_path=test_db_path,
+        write_summary=False,
+    )
+
+    db = F1Database(test_db_path)
+    with db.connect() as conn:
+        row = conn.execute(
+            "SELECT full_name, nationality FROM drivers WHERE driver_id = 'verstappen'"
+        ).fetchone()
+    assert row[0] == "Max Verstappen"
+    assert row[1] is None
+
+
+@patch("src.fetch_data.SAVE_RAW_JSON", False)
+@patch("src.fetch_data.F1ApiClient")
+def test_complete_season_is_skipped(mock_client_cls, test_db_path):
+    _seed_complete_season(test_db_path, season=2019)
+    client = _configure_mock_client(mock_client_cls)
+
+    run(
+        season="2019",
+        fetch_race_results=True,
+        db_path=test_db_path,
+        write_summary=False,
+    )
+
+    client.get_drivers.assert_not_called()
+    client.get_races.assert_not_called()
+
+
+@patch("src.fetch_data.SAVE_RAW_JSON", False)
+@patch("src.fetch_data.F1ApiClient")
+def test_force_refresh_refetches_complete_season(mock_client_cls, test_db_path):
+    _seed_complete_season(test_db_path, season=2019)
+    client = _configure_mock_client(mock_client_cls)
+
+    run(
+        season="2019",
+        fetch_race_results=True,
+        force_refresh=True,
+        db_path=test_db_path,
+        write_summary=False,
+    )
+
+    client.get_drivers.assert_called_once()
+    client.get_races.assert_called_once()
+
+
+@patch("src.fetch_data.SAVE_RAW_JSON", False)
+@patch("src.fetch_data.F1ApiClient")
+def test_last_two_rounds_are_refetched_for_corrections(mock_client_cls, test_db_path):
+    _seed_complete_season(test_db_path, season=2024, rounds=(1, 2, 3), results_rounds=(1, 2))
+    client = _configure_mock_client(mock_client_cls)
+    client.get_races.return_value = {
+        "season": 2024,
+        "races": [
+            {"round": 1, "raceName": "GP 1"},
+            {"round": 2, "raceName": "GP 2"},
+            {"round": 3, "raceName": "GP 3"},
+        ],
+    }
+
+    run(
+        season="2024",
+        fetch_race_results=True,
+        db_path=test_db_path,
+        write_summary=False,
+    )
+
+    fetched_rounds = {call.args[0] for call in client.get_race_results.call_args_list}
+    assert fetched_rounds == {2, 3}
+
+
+@patch("src.fetch_data.SAVE_RAW_JSON", False)
+@patch("src.fetch_data.F1ApiClient")
+def test_pipeline_writes_meta_table(mock_client_cls, test_db_path):
+    _configure_mock_client(mock_client_cls)
+
+    run(
+        season="2024",
+        fetch_race_results=False,
+        db_path=test_db_path,
+        write_summary=False,
+    )
+
+    db = F1Database(test_db_path)
+    with db.connect() as conn:
+        row = conn.execute("SELECT value FROM pipeline_meta WHERE key = 'finished_at'").fetchone()
+    assert row is not None
+    assert row[0] is not None

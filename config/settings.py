@@ -122,4 +122,5 @@ def resolve_season_list(
 def _current_calendar_year() -> int:
     """Best-effort calendar year; refined to the API season when fetching 'current'."""
     from datetime import date
+
     return date.today().year

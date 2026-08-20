@@ -37,6 +37,9 @@ RACE_RESULT_COLUMNS = [
 ]
 
 
+NON_FINISH_POSITIONS = {"NC", "DSQ", "DNS", "DNQ"}
+
+
 def _dataframe_from_rows(rows: list[dict[str, Any]], columns: list[str]) -> pd.DataFrame:
     """Create a DataFrame while preserving explicit None values."""
     if not rows:
@@ -49,12 +52,14 @@ def circuits_to_df(raw: dict[str, Any]) -> pd.DataFrame:
     records = raw.get("circuits", raw if isinstance(raw, list) else [])
     rows = []
     for c in records:
-        rows.append({
-            "circuit_id": c.get("circuitId"),
-            "circuit_name": c.get("circuitName") or c.get("name"),
-            "city": c.get("city"),
-            "country": c.get("country"),
-        })
+        rows.append(
+            {
+                "circuit_id": c.get("circuitId"),
+                "circuit_name": c.get("circuitName") or c.get("name"),
+                "city": c.get("city"),
+                "country": c.get("country"),
+            }
+        )
     return _dataframe_from_rows(
         rows,
         ["circuit_id", "circuit_name", "city", "country"],
@@ -66,15 +71,17 @@ def drivers_to_df(raw: dict[str, Any]) -> pd.DataFrame:
     records = raw.get("drivers", raw if isinstance(raw, list) else [])
     rows = []
     for d in records:
-        rows.append({
-            "driver_id": d.get("driverId"),
-            "full_name": f"{d.get('name', '')} {d.get('surname', '')}".strip(),
-            "nationality": d.get("nationality"),
-            "birthday": d.get("birthday"),
-            "number": d.get("number"),
-            "shortname": d.get("shortName"),
-            "team_id": d.get("teamId") or d.get("team"),
-        })
+        rows.append(
+            {
+                "driver_id": d.get("driverId"),
+                "full_name": f"{d.get('name', '')} {d.get('surname', '')}".strip(),
+                "nationality": d.get("nationality"),
+                "birthday": d.get("birthday"),
+                "number": d.get("number"),
+                "shortname": d.get("shortName"),
+                "team_id": d.get("teamId") or d.get("team"),
+            }
+        )
     return _dataframe_from_rows(rows, DRIVER_COLUMNS)
 
 
@@ -83,14 +90,16 @@ def teams_to_df(raw: dict[str, Any]) -> pd.DataFrame:
     records = raw.get("teams", raw if isinstance(raw, list) else [])
     rows = []
     for t in records:
-        rows.append({
-            "team_id": t.get("teamId"),
-            "team_name": t.get("teamName") or t.get("name"),
-            "nationality": t.get("teamNationality") or t.get("nationality"),
-            "first_appearance": t.get("firstAppeareance") or t.get("firstAppearance"),
-            "constructors_championships": t.get("constructorsChampionships"),
-            "drivers_championships": t.get("driversChampionships"),
-        })
+        rows.append(
+            {
+                "team_id": t.get("teamId"),
+                "team_name": t.get("teamName") or t.get("name"),
+                "nationality": t.get("teamNationality") or t.get("nationality"),
+                "first_appearance": t.get("firstAppeareance") or t.get("firstAppearance"),
+                "constructors_championships": t.get("constructorsChampionships"),
+                "drivers_championships": t.get("driversChampionships"),
+            }
+        )
     return _dataframe_from_rows(
         rows,
         [
@@ -119,17 +128,19 @@ def races_to_df(raw: dict[str, Any], season: str | int | None = None) -> pd.Data
         circuit = r.get("circuit", {}) or {}
         schedule = r.get("schedule", {}) or {}
         race_date = (schedule.get("race", {}) or {}).get("date") if schedule else r.get("date")
-        rows.append({
-            "season": resolved_season,
-            "round": r.get("round"),
-            "race_id": r.get("raceId"),
-            "race_name": r.get("raceName") or r.get("name"),
-            "race_date": race_date,
-            "circuit_id": circuit.get("circuitId"),
-            "circuit_name": circuit.get("circuitName"),
-            "city": circuit.get("city"),
-            "country": circuit.get("country"),
-        })
+        rows.append(
+            {
+                "season": resolved_season,
+                "round": r.get("round"),
+                "race_id": r.get("raceId"),
+                "race_name": r.get("raceName") or r.get("name"),
+                "race_date": race_date,
+                "circuit_id": circuit.get("circuitId"),
+                "circuit_name": circuit.get("circuitName"),
+                "city": circuit.get("city"),
+                "country": circuit.get("country"),
+            }
+        )
     return _dataframe_from_rows(
         rows,
         [
@@ -164,18 +175,30 @@ def driver_standings_to_df(raw: dict[str, Any], season: str | int) -> pd.DataFra
     for entry in records:
         driver = entry.get("driver", {}) or {}
         team = entry.get("team", {}) or {}
-        rows.append({
-            "season": int(season),
-            "position": entry.get("position"),
-            "driver_id": entry.get("driverId") or driver.get("driverId"),
-            "driver_name": f"{driver.get('name', '')} {driver.get('surname', '')}".strip(),
-            "team_name": team.get("teamName") or team.get("name"),
-            "points": entry.get("points"),
-            "wins": entry.get("wins"),
-        })
+        rows.append(
+            {
+                "season": int(season),
+                "position": entry.get("position"),
+                "driver_id": entry.get("driverId") or driver.get("driverId"),
+                "driver_name": f"{driver.get('name', '')} {driver.get('surname', '')}".strip(),
+                "team_id": entry.get("teamId") or team.get("teamId"),
+                "team_name": team.get("teamName") or team.get("name"),
+                "points": entry.get("points"),
+                "wins": entry.get("wins"),
+            }
+        )
     return _dataframe_from_rows(
         rows,
-        ["season", "position", "driver_id", "driver_name", "team_name", "points", "wins"],
+        [
+            "season",
+            "position",
+            "driver_id",
+            "driver_name",
+            "team_id",
+            "team_name",
+            "points",
+            "wins",
+        ],
     )
 
 
@@ -185,14 +208,16 @@ def constructor_standings_to_df(raw: dict[str, Any], season: str | int) -> pd.Da
     rows = []
     for entry in records:
         team = entry.get("team", {}) or {}
-        rows.append({
-            "season": int(season),
-            "position": entry.get("position"),
-            "team_id": entry.get("teamId") or team.get("teamId"),
-            "team_name": team.get("teamName") or team.get("name"),
-            "points": entry.get("points"),
-            "wins": entry.get("wins"),
-        })
+        rows.append(
+            {
+                "season": int(season),
+                "position": entry.get("position"),
+                "team_id": entry.get("teamId") or team.get("teamId"),
+                "team_name": team.get("teamName") or team.get("name"),
+                "points": entry.get("points"),
+                "wins": entry.get("wins"),
+            }
+        )
     return _dataframe_from_rows(
         rows,
         ["season", "position", "team_id", "team_name", "points", "wins"],
@@ -217,21 +242,25 @@ def race_results_to_df(
         driver = entry.get("driver", {}) or {}
         team = entry.get("team", {}) or {}
         position = entry.get("position")
-        rows.append({
-            "season": int(season),
-            "round": round_number,
-            "race_name": race.get("raceName"),
-            "position": position,
-            "finished": 1 if position not in (None, "NC") else 0,
-            "driver_id": driver.get("driverId"),
-            "driver_name": f"{driver.get('name', '')} {driver.get('surname', '')}".strip(),
-            "team_id": team.get("teamId"),
-            "team_name": team.get("teamName") or team.get("name"),
-            "grid": entry.get("grid"),
-            "points": entry.get("points"),
-            "time": entry.get("time"),
-            "retired": entry.get("retired"),
-        })
+        rows.append(
+            {
+                "season": int(season),
+                "round": round_number,
+                "race_name": race.get("raceName"),
+                "position": position,
+                "finished": (
+                    0 if position is None or str(position).upper() in NON_FINISH_POSITIONS else 1
+                ),
+                "driver_id": driver.get("driverId"),
+                "driver_name": f"{driver.get('name', '')} {driver.get('surname', '')}".strip(),
+                "team_id": team.get("teamId"),
+                "team_name": team.get("teamName") or team.get("name"),
+                "grid": entry.get("grid"),
+                "points": entry.get("points"),
+                "time": entry.get("time"),
+                "retired": entry.get("retired"),
+            }
+        )
     df = _dataframe_from_rows(rows, RACE_RESULT_COLUMNS)
     df["position"] = pd.to_numeric(df["position"], errors="coerce")
     return df

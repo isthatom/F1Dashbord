@@ -18,6 +18,10 @@ f1-powerbi-project/
 ├── config/
 │   ├── __init__.py
 │   └── settings.py          # loads config.yaml and exposes paths/settings
+├── docs/
+│   └── powerbi.md           # relationship map + DAX measures for Power BI
+├── scripts/
+│   └── refresh.ps1          # one-command refresh (Windows)
 ├── src/
 │   ├── __init__.py
 │   ├── analytics.py         # derived metrics written to analytics tables
@@ -33,11 +37,12 @@ f1-powerbi-project/
 ├── logs/
 │   └── run_summary.json     # latest structured run summary
 ├── tests/
+├── app.py                   # Streamlit preview of data/f1.db
 ├── Dockerfile
+├── Makefile                 # one-command refresh (macOS/Linux)
 ├── pyproject.toml
 ├── config.yaml
-├── main.py
-└── requirements.txt
+└── main.py
 ```
 
 ## Setup
@@ -66,6 +71,7 @@ Useful options:
 python main.py --season 2024
 python main.py --start-year 2020 --end-year 2024
 python main.py --end-year current
+python main.py --force-refresh      # re-fetch every season, even complete ones
 python main.py --no-race-results
 python main.py --export-csv
 python main.py --verbose
@@ -73,6 +79,40 @@ python main.py --verbose
 
 The main output is `data/f1.db`. The latest structured execution summary is
 written to `logs/run_summary.json`.
+
+By default, seasons already fully loaded in the database are skipped, so a
+routine refresh only fetches the live season (much faster). Race results for
+the last two rounds of a season are always re-fetched so post-race penalties
+and corrections reach Power BI. Use `--force-refresh` to rebuild everything.
+
+## Web Preview (Streamlit)
+
+No Power BI handy? Preview the database in a browser:
+
+```bash
+streamlit run app.py
+```
+
+The app has five tabs, all reading directly from `data/f1.db`:
+
+- **Season Hub** — championship metrics (leader, gap to 2nd, most wins/podiums,
+  constructor leader) plus team-colored driver and constructor standings.
+- **Points Trend** — cumulative points per driver with an avg-points-per-race
+  toggle and a top-N selector.
+- **Race Positions** — a driver × round finish-position heatmap plus rolling
+  average position and recent-form charts.
+- **Teammate H2H** — head-to-head record and points-advantage per round for any
+  team, with a season points comparison.
+- **Race Results** — pick any round for a grid-vs-finish chart, points scored,
+  and the full results table.
+
+Every chart is color-coded by team (F1 broadcast style) and every tab has a CSV
+download button. Requires `streamlit` (installed with `.[dev]`).
+
+## Power BI Guide
+
+See `docs/powerbi.md` for the table relationship map and ready-to-paste DAX
+measures (wins, average finish, H2H record, data freshness card).
 
 ## Configuration
 
@@ -115,6 +155,11 @@ Analytics tables:
 - `analytics_rolling_position`
 - `analytics_recent_form`
 - `analytics_teammate_comparison`
+
+Metadata:
+
+- `pipeline_meta` — key/value JSON of the latest run (`finished_at`,
+  `duration_seconds`, `seasons`, `error_count`) for "data as of" reporting.
 
 Power BI should connect to `data/f1.db` and can infer most relationships from
 the schema foreign keys.
@@ -161,6 +206,13 @@ To auto-format:
 
 ```bash
 ruff format .
+```
+
+Or use the one-command refresh (lint + type check + test + pipeline):
+
+```bash
+make refresh        # macOS/Linux
+.\scripts\refresh.ps1   # Windows PowerShell
 ```
 
 `.github/workflows/quality.yml` runs the quality gates on pull requests and on

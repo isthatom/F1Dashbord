@@ -3,16 +3,24 @@
 import pandas as pd
 
 from src import data_processor as dp
+from src.database import F1Database
 
 # ---------------------------------------------------------------------------
 # Empty / missing responses
 # ---------------------------------------------------------------------------
 
+
 def test_drivers_to_df_empty_response():
     df = dp.drivers_to_df({})
     assert df.empty
     assert list(df.columns) == [
-        "driver_id", "full_name", "nationality", "birthday", "number", "shortname", "team_id",
+        "driver_id",
+        "full_name",
+        "nationality",
+        "birthday",
+        "number",
+        "shortname",
+        "team_id",
     ]
 
 
@@ -39,6 +47,7 @@ def test_circuits_to_df_empty_response():
 # ---------------------------------------------------------------------------
 # Missing / null fields
 # ---------------------------------------------------------------------------
+
 
 def test_drivers_to_df_missing_fields():
     raw = {
@@ -92,9 +101,27 @@ def test_driver_standings_to_df_uses_top_level_driver_id():
     assert df.iloc[0]["driver_name"] == "Max Verstappen"
 
 
+def test_driver_standings_to_df_extracts_team_id():
+    raw = {
+        "drivers_championship": [
+            {
+                "driverId": "verstappen",
+                "position": 1,
+                "points": 100,
+                "wins": 5,
+                "driver": {"name": "Max", "surname": "Verstappen"},
+                "team": {"teamId": "red_bull", "teamName": "Red Bull"},
+            }
+        ]
+    }
+    df = dp.driver_standings_to_df(raw, season=2024)
+    assert df.iloc[0]["team_id"] == "red_bull"
+
+
 # ---------------------------------------------------------------------------
 # DNF / non-numeric position ("NC")
 # ---------------------------------------------------------------------------
+
 
 def test_race_results_to_df_nc_position():
     raw = {
@@ -150,6 +177,7 @@ def test_race_results_to_df_null_position():
 # API response shape quirks
 # ---------------------------------------------------------------------------
 
+
 def test_races_to_df_current_season_uses_race_key():
     raw = {
         "season": 2026,
@@ -167,20 +195,76 @@ def test_races_to_df_current_season_uses_race_key():
 
 
 def test_circuits_from_races_df_deduplicates():
-    races = pd.DataFrame([
-        {
-            "circuit_id": "monaco",
-            "circuit_name": "Monaco",
-            "city": "Monte Carlo",
-            "country": "Monaco",
-        },
-        {
-            "circuit_id": "monaco",
-            "circuit_name": "Monaco",
-            "city": "Monte Carlo",
-            "country": "Monaco",
-        },
-        {"circuit_id": None, "circuit_name": None, "city": None, "country": None},
-    ])
+    races = pd.DataFrame(
+        [
+            {
+                "circuit_id": "monaco",
+                "circuit_name": "Monaco",
+                "city": "Monte Carlo",
+                "country": "Monaco",
+            },
+            {
+                "circuit_id": "monaco",
+                "circuit_name": "Monaco",
+                "city": "Monte Carlo",
+                "country": "Monaco",
+            },
+            {"circuit_id": None, "circuit_name": None, "city": None, "country": None},
+        ]
+    )
     circuits = dp.circuits_from_races_df(races)
     assert len(circuits) == 1
+
+
+def test_initialize_migrates_driver_standings_team_id(test_db_path):
+    db = F1Database(test_db_path)
+    db.initialize()
+    with db.connect() as conn:
+        conn.execute("DROP TABLE driver_standings")
+        conn.execute(
+            "CREATE TABLE driver_standings ("
+            "season INTEGER NOT NULL, driver_id TEXT NOT NULL, position INTEGER, "
+            "team_name TEXT, points REAL, wins INTEGER, "
+            "PRIMARY KEY (season, driver_id))"
+        )
+    db.initialize()
+    with db.connect() as conn:
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(driver_standings)")}
+    assert "team_id" in cols
+
+
+def test_driver_standings_team_id_roundtrip(test_db):
+    raw = {
+        "drivers_championship": [
+            {
+                "driverId": "verstappen",
+                "position": 1,
+                "points": 100,
+                "wins": 5,
+                "driver": {"name": "Max", "surname": "Verstappen"},
+                "team": {"teamId": "red_bull", "teamName": "Red Bull"},
+            }
+        ]
+    }
+    df = dp.driver_standings_to_df(raw, season=2024)
+    test_db.upsert_teams(
+        pd.DataFrame(
+            [
+                {
+                    "team_id": "red_bull",
+                    "team_name": "Red Bull",
+                    "nationality": None,
+                    "first_appearance": None,
+                    "constructors_championships": None,
+                    "drivers_championships": None,
+                }
+            ]
+        )
+    )
+    test_db.upsert_driver_standings(df)
+
+    with test_db.connect() as conn:
+        row = conn.execute(
+            "SELECT team_id FROM driver_standings WHERE driver_id = 'verstappen'"
+        ).fetchone()
+    assert row[0] == "red_bull"

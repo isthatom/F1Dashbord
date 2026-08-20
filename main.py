@@ -53,6 +53,11 @@ def parse_args() -> argparse.Namespace:
         help="Also export legacy CSV files to data/processed/ (config can enable this too).",
     )
     parser.add_argument(
+        "--force-refresh",
+        action="store_true",
+        help="Re-fetch every requested season, even ones already complete in the database.",
+    )
+    parser.add_argument(
         "--verbose",
         action="store_true",
         help="Show detailed (DEBUG level) logs.",
@@ -79,6 +84,7 @@ def main() -> None:
         end_year=end_year,
         fetch_race_results=FETCH_RACE_RESULTS and not args.no_race_results,
         export_csv=args.export_csv or EXPORT_CSV,
+        force_refresh=args.force_refresh,
     )
 
 

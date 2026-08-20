@@ -66,18 +66,14 @@ def compute_rolling_position(
     df = df.sort_values(["season", "driver_id", "round"])
     df["finished_position"] = df["position"].where(df["finished"] == 1)
 
-    df["rolling_avg_position"] = (
-        df.groupby(["season", "driver_id"])["finished_position"]
-        .transform(lambda s: s.rolling(window=window, min_periods=1).mean())
+    df["rolling_avg_position"] = df.groupby(["season", "driver_id"])["finished_position"].transform(
+        lambda s: s.rolling(window=window, min_periods=1).mean()
     )
-    df["races_in_window"] = (
-        df.groupby(["season", "driver_id"])["finished_position"]
-        .transform(lambda s: s.rolling(window=window, min_periods=1).count())
+    df["races_in_window"] = df.groupby(["season", "driver_id"])["finished_position"].transform(
+        lambda s: s.rolling(window=window, min_periods=1).count()
     )
 
-    return df[
-        ["season", "round", "driver_id", "rolling_avg_position", "races_in_window"]
-    ]
+    return df[["season", "round", "driver_id", "rolling_avg_position", "races_in_window"]]
 
 
 def compute_recent_form(
@@ -96,13 +92,11 @@ def compute_recent_form(
     df["race_points"] = df["points"].fillna(0)
     df = df.sort_values(["season", "driver_id", "round"])
 
-    df["recent_form_points"] = (
-        df.groupby(["season", "driver_id"])["race_points"]
-        .transform(lambda s: s.rolling(window=window, min_periods=1).sum())
+    df["recent_form_points"] = df.groupby(["season", "driver_id"])["race_points"].transform(
+        lambda s: s.rolling(window=window, min_periods=1).sum()
     )
-    df["races_in_window"] = (
-        df.groupby(["season", "driver_id"])["race_points"]
-        .transform(lambda s: s.rolling(window=window, min_periods=1).count())
+    df["races_in_window"] = df.groupby(["season", "driver_id"])["race_points"].transform(
+        lambda s: s.rolling(window=window, min_periods=1).count()
     )
 
     return df[["season", "round", "driver_id", "recent_form_points", "races_in_window"]]
@@ -193,26 +187,53 @@ def run_analytics(db: F1Database | None = None) -> dict[str, int]:
 
 
 def _empty_points_trend() -> pd.DataFrame:
-    return pd.DataFrame(columns=[
-        "season", "round", "driver_id", "race_points",
-        "cumulative_points", "season_avg_points_per_race",
-    ])
+    return pd.DataFrame(
+        columns=[
+            "season",
+            "round",
+            "driver_id",
+            "race_points",
+            "cumulative_points",
+            "season_avg_points_per_race",
+        ]
+    )
 
 
 def _empty_rolling_position() -> pd.DataFrame:
-    return pd.DataFrame(columns=[
-        "season", "round", "driver_id", "rolling_avg_position", "races_in_window",
-    ])
+    return pd.DataFrame(
+        columns=[
+            "season",
+            "round",
+            "driver_id",
+            "rolling_avg_position",
+            "races_in_window",
+        ]
+    )
 
 
 def _empty_recent_form() -> pd.DataFrame:
-    return pd.DataFrame(columns=[
-        "season", "round", "driver_id", "recent_form_points", "races_in_window",
-    ])
+    return pd.DataFrame(
+        columns=[
+            "season",
+            "round",
+            "driver_id",
+            "recent_form_points",
+            "races_in_window",
+        ]
+    )
 
 
 def _empty_teammate_comparison() -> pd.DataFrame:
-    return pd.DataFrame(columns=[
-        "season", "round", "team_id", "driver_id", "teammate_driver_id",
-        "driver_points", "teammate_points", "points_advantage", "position_advantage",
-    ])
+    return pd.DataFrame(
+        columns=[
+            "season",
+            "round",
+            "team_id",
+            "driver_id",
+            "teammate_driver_id",
+            "driver_points",
+            "teammate_points",
+            "points_advantage",
+            "position_advantage",
+        ]
+    )

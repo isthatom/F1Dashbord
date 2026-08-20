@@ -13,20 +13,64 @@ def _sample_race_results() -> pd.DataFrame:
     VER: P1 (25pts), P2 (18pts), NC/DNF (0pts)  -> positions 1, 2, NaN
     PER: P3 (15pts), P4 (12pts), P5 (10pts)
     """
-    return pd.DataFrame([
-        {"season": 2024, "round": 1, "driver_id": "verstappen", "team_id": "red_bull",
-         "position": 1, "finished": 1, "points": 25},
-        {"season": 2024, "round": 1, "driver_id": "perez", "team_id": "red_bull",
-         "position": 3, "finished": 1, "points": 15},
-        {"season": 2024, "round": 2, "driver_id": "verstappen", "team_id": "red_bull",
-         "position": 2, "finished": 1, "points": 18},
-        {"season": 2024, "round": 2, "driver_id": "perez", "team_id": "red_bull",
-         "position": 4, "finished": 1, "points": 12},
-        {"season": 2024, "round": 3, "driver_id": "verstappen", "team_id": "red_bull",
-         "position": None, "finished": 0, "points": 0},
-        {"season": 2024, "round": 3, "driver_id": "perez", "team_id": "red_bull",
-         "position": 5, "finished": 1, "points": 10},
-    ])
+    return pd.DataFrame(
+        [
+            {
+                "season": 2024,
+                "round": 1,
+                "driver_id": "verstappen",
+                "team_id": "red_bull",
+                "position": 1,
+                "finished": 1,
+                "points": 25,
+            },
+            {
+                "season": 2024,
+                "round": 1,
+                "driver_id": "perez",
+                "team_id": "red_bull",
+                "position": 3,
+                "finished": 1,
+                "points": 15,
+            },
+            {
+                "season": 2024,
+                "round": 2,
+                "driver_id": "verstappen",
+                "team_id": "red_bull",
+                "position": 2,
+                "finished": 1,
+                "points": 18,
+            },
+            {
+                "season": 2024,
+                "round": 2,
+                "driver_id": "perez",
+                "team_id": "red_bull",
+                "position": 4,
+                "finished": 1,
+                "points": 12,
+            },
+            {
+                "season": 2024,
+                "round": 3,
+                "driver_id": "verstappen",
+                "team_id": "red_bull",
+                "position": None,
+                "finished": 0,
+                "points": 0,
+            },
+            {
+                "season": 2024,
+                "round": 3,
+                "driver_id": "perez",
+                "team_id": "red_bull",
+                "position": 5,
+                "finished": 1,
+                "points": 10,
+            },
+        ]
+    )
 
 
 def test_compute_points_trend_cumulative_and_average():
@@ -74,9 +118,7 @@ def test_compute_recent_form_sums_last_five():
 
 def test_compute_teammate_comparison_points_and_position():
     df = an.compute_teammate_comparison(_sample_race_results())
-    r1_ver = df[
-        (df["round"] == 1) & (df["driver_id"] == "verstappen")
-    ].iloc[0]
+    r1_ver = df[(df["round"] == 1) & (df["driver_id"] == "verstappen")].iloc[0]
 
     assert r1_ver["teammate_driver_id"] == "perez"
     assert r1_ver["points_advantage"] == 10  # 25 - 15
@@ -84,10 +126,18 @@ def test_compute_teammate_comparison_points_and_position():
 
 
 def test_compute_teammate_comparison_skips_non_pair_teams():
-    df = pd.DataFrame([
-        {"season": 2024, "round": 1, "team_id": "solo", "driver_id": "alone",
-         "position": 1, "points": 25},
-    ])
+    df = pd.DataFrame(
+        [
+            {
+                "season": 2024,
+                "round": 1,
+                "team_id": "solo",
+                "driver_id": "alone",
+                "position": 1,
+                "points": 25,
+            },
+        ]
+    )
     result = an.compute_teammate_comparison(df)
     assert result.empty
 

@@ -12,6 +12,7 @@ Every table uses explicit primary keys and foreign keys so Power BI's
 SQLite connector can auto-detect relationships.
 """
 
+import json
 import logging
 import sqlite3
 from pathlib import Path
@@ -81,11 +82,13 @@ CREATE TABLE IF NOT EXISTS driver_standings (
     season        INTEGER NOT NULL,
     driver_id     TEXT NOT NULL,
     position      INTEGER,
+    team_id       TEXT,
     team_name     TEXT,
     points        REAL,
     wins          INTEGER,
     PRIMARY KEY (season, driver_id),
-    FOREIGN KEY (driver_id) REFERENCES drivers(driver_id)
+    FOREIGN KEY (driver_id) REFERENCES drivers(driver_id),
+    FOREIGN KEY (team_id) REFERENCES teams(team_id)
 );
 
 CREATE TABLE IF NOT EXISTS constructor_standings (
@@ -144,6 +147,12 @@ CREATE TABLE IF NOT EXISTS analytics_teammate_comparison (
     FOREIGN KEY (driver_id) REFERENCES drivers(driver_id),
     FOREIGN KEY (team_id) REFERENCES teams(team_id)
 );
+
+CREATE TABLE IF NOT EXISTS pipeline_meta (
+    key         TEXT PRIMARY KEY,
+    value       TEXT,
+    updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
 """
 
 
@@ -162,6 +171,10 @@ class F1Database:
     def initialize(self) -> None:
         with self.connect() as conn:
             conn.executescript(SCHEMA_SQL)
+            cols = {row[1] for row in conn.execute("PRAGMA table_info(driver_standings)")}
+            if "team_id" not in cols:
+                conn.execute("ALTER TABLE driver_standings ADD COLUMN team_id TEXT")
+                logger.info("Migrated driver_standings: added team_id column")
         logger.info("Database ready at %s", self.db_path)
 
     # -----------------------------------------------------------------
@@ -175,13 +188,19 @@ class F1Database:
             ).fetchone()
         return row is not None
 
-    def count_race_result_rounds(self, season: int) -> int:
+    def season_is_complete(self, season: int) -> bool:
+        """True when every race on the calendar for that season has race results."""
         with self.connect() as conn:
-            row = conn.execute(
+            race_count = conn.execute(
+                "SELECT COUNT(*) FROM races WHERE season = ?", (season,)
+            ).fetchone()[0]
+            if race_count == 0:
+                return False
+            round_count = conn.execute(
                 "SELECT COUNT(DISTINCT round) FROM race_results WHERE season = ?",
                 (season,),
-            ).fetchone()
-        return row[0] if row else 0
+            ).fetchone()[0]
+        return round_count >= race_count
 
     def read_race_results(self) -> pd.DataFrame:
         """Load the full race_results fact table for analytics."""
@@ -199,6 +218,18 @@ class F1Database:
         logger.info("Replaced %s with %s rows", table, count)
         return count
 
+    def upsert_meta(self, payload: dict[str, Any]) -> None:
+        """Store run metadata in pipeline_meta for 'data as of' reporting."""
+        rows = [(str(key), json.dumps(value, ensure_ascii=False)) for key, value in payload.items()]
+        with self.connect() as conn:
+            conn.executemany(
+                "INSERT INTO pipeline_meta (key, value, updated_at) "
+                "VALUES (?, ?, datetime('now')) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value, "
+                "updated_at = excluded.updated_at",
+                rows,
+            )
+
     # -----------------------------------------------------------------
     # Upsert helpers — one per table
     # -----------------------------------------------------------------
@@ -215,16 +246,25 @@ class F1Database:
         if df.empty:
             return 0
         cols = [
-            "team_id", "team_name", "nationality", "first_appearance",
-            "constructors_championships", "drivers_championships",
+            "team_id",
+            "team_name",
+            "nationality",
+            "first_appearance",
+            "constructors_championships",
+            "drivers_championships",
         ]
         return self._upsert(df[cols].drop_duplicates("team_id"), "teams", "team_id")
 
-    def upsert_drivers(self, df: pd.DataFrame) -> int:
+    def upsert_drivers(self, df: pd.DataFrame, *, update_existing: bool = True) -> int:
         if df.empty:
             return 0
         cols = ["driver_id", "full_name", "nationality", "birthday", "number", "shortname"]
-        return self._upsert(df[cols].drop_duplicates("driver_id"), "drivers", "driver_id")
+        return self._upsert(
+            df[cols].drop_duplicates("driver_id"),
+            "drivers",
+            "driver_id",
+            update_existing=update_existing,
+        )
 
     def upsert_races(self, df: pd.DataFrame) -> int:
         if df.empty:
@@ -236,8 +276,16 @@ class F1Database:
         if df.empty:
             return 0
         cols = [
-            "season", "round", "driver_id", "team_id", "position", "finished",
-            "grid", "points", "time", "retired",
+            "season",
+            "round",
+            "driver_id",
+            "team_id",
+            "position",
+            "finished",
+            "grid",
+            "points",
+            "time",
+            "retired",
         ]
         df = df.copy()
         for col in cols:
@@ -248,18 +296,10 @@ class F1Database:
 
     def _insert_missing_race_result_dependencies(self, df: pd.DataFrame) -> None:
         """Insert placeholder dimension rows needed by race_results foreign keys."""
+        self._ensure_driver_rows(df["driver_id"].dropna().drop_duplicates())
+        self._ensure_team_rows(df["team_id"].dropna().drop_duplicates())
+        races = df[["season", "round"]].dropna().drop_duplicates()
         with self.connect() as conn:
-            for driver_id in df["driver_id"].dropna().drop_duplicates():
-                conn.execute(
-                    "INSERT OR IGNORE INTO drivers (driver_id) VALUES (?)",
-                    (driver_id,),
-                )
-            for team_id in df["team_id"].dropna().drop_duplicates():
-                conn.execute(
-                    "INSERT OR IGNORE INTO teams (team_id) VALUES (?)",
-                    (team_id,),
-                )
-            races = df[["season", "round"]].dropna().drop_duplicates()
             for row in races.itertuples(index=False):
                 season_value = row.season
                 round_value = row.round
@@ -270,11 +310,31 @@ class F1Database:
                     (int(str(season_value)), int(str(round_value))),
                 )
 
+    def _ensure_driver_rows(self, driver_ids) -> None:
+        with self.connect() as conn:
+            for driver_id in driver_ids:
+                conn.execute(
+                    "INSERT OR IGNORE INTO drivers (driver_id) VALUES (?)",
+                    (driver_id,),
+                )
+
+    def _ensure_team_rows(self, team_ids) -> None:
+        with self.connect() as conn:
+            for team_id in team_ids:
+                conn.execute(
+                    "INSERT OR IGNORE INTO teams (team_id) VALUES (?)",
+                    (team_id,),
+                )
+
     def upsert_driver_standings(self, df: pd.DataFrame) -> int:
         if df.empty:
             return 0
-        cols = ["season", "driver_id", "position", "team_name", "points", "wins"]
+        cols = ["season", "driver_id", "position", "team_id", "team_name", "points", "wins"]
         clean = df[cols].dropna(subset=["driver_id"])
+        if clean.empty:
+            return 0
+        self._ensure_driver_rows(clean["driver_id"].drop_duplicates())
+        self._ensure_team_rows(clean["team_id"].dropna().drop_duplicates())
         return self._upsert(clean, "driver_standings", ["season", "driver_id"])
 
     def upsert_constructor_standings(self, df: pd.DataFrame) -> int:
@@ -282,9 +342,18 @@ class F1Database:
             return 0
         cols = ["season", "team_id", "position", "team_name", "points", "wins"]
         clean = df[cols].dropna(subset=["team_id"])
+        if clean.empty:
+            return 0
+        self._ensure_team_rows(clean["team_id"].drop_duplicates())
         return self._upsert(clean, "constructor_standings", ["season", "team_id"])
 
-    def _upsert(self, df: pd.DataFrame, table: str, conflict_cols: str | list[str]) -> int:
+    def _upsert(
+        self,
+        df: pd.DataFrame,
+        table: str,
+        conflict_cols: str | list[str],
+        update_existing: bool = True,
+    ) -> int:
         if df.empty:
             return 0
 
@@ -297,7 +366,7 @@ class F1Database:
         update_cols = [c for c in columns if c not in conflict_cols]
         conflict_clause = ", ".join(conflict_cols)
 
-        if update_cols:
+        if update_cols and update_existing:
             set_clause = ", ".join(f"{c} = excluded.{c}" for c in update_cols)
             sql = (
                 f"INSERT INTO {table} ({col_list}) VALUES ({placeholders}) "

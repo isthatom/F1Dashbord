@@ -63,7 +63,9 @@ def _upsert_drivers_from_standings(db: F1Database, standings_df: pd.DataFrame) -
             "shortname": None,
         }
     ).dropna(subset=["driver_id"])
-    return db.upsert_drivers(drivers_df)
+    # Insert-only: this fallback must never overwrite the richer driver
+    # metadata already loaded by the drivers endpoint (see src/database.py).
+    return db.upsert_drivers(drivers_df, update_existing=False)
 
 
 def _fetch_global_circuits(
@@ -91,17 +93,17 @@ def _fetch_season(
     db: F1Database,
     fetch_race_results: bool,
     export_csv: bool,
+    force_refresh: bool,
     summary: RunSummary | None,
 ) -> None:
     """Fetch and store all data for a single season token (year or 'current')."""
-    season_client = F1ApiClient(season=season)
     resolved_season = season
     is_current = season == "current"
 
     # --- Drivers ---------------------------------------------------------
     endpoint = f"{season}/drivers"
     try:
-        raw_drivers = season_client.get_drivers()
+        raw_drivers = client.get_drivers(season=season)
         if SAVE_RAW_JSON:
             _save_raw_json(f"{season}_drivers", raw_drivers)
         drivers_df = dp.drivers_to_df(raw_drivers)
@@ -122,7 +124,7 @@ def _fetch_season(
     # --- Teams -----------------------------------------------------------
     endpoint = f"{season}/teams"
     try:
-        raw_teams = season_client.get_teams()
+        raw_teams = client.get_teams(season=season)
         if SAVE_RAW_JSON:
             _save_raw_json(f"{season}_teams", raw_teams)
         teams_df = dp.teams_to_df(raw_teams)
@@ -144,7 +146,7 @@ def _fetch_season(
     endpoint = season
     races_df = None
     try:
-        raw_races = season_client.get_races()
+        raw_races = client.get_races(season=season)
         if SAVE_RAW_JSON:
             _save_raw_json(f"{season}_races", raw_races)
         if raw_races.get("season"):
@@ -169,7 +171,7 @@ def _fetch_season(
     # --- Driver standings ------------------------------------------------
     endpoint = f"{season}/drivers-championship"
     try:
-        raw_driver_standings = season_client.get_driver_standings()
+        raw_driver_standings = client.get_driver_standings(season=season)
         if SAVE_RAW_JSON:
             _save_raw_json(f"{season}_driver_standings", raw_driver_standings)
         driver_standings_df = dp.driver_standings_to_df(raw_driver_standings, resolved_season)
@@ -191,7 +193,7 @@ def _fetch_season(
     # --- Constructor standings -------------------------------------------
     endpoint = f"{season}/constructors-championship"
     try:
-        raw_constructor_standings = season_client.get_constructor_standings()
+        raw_constructor_standings = client.get_constructor_standings(season=season)
         if SAVE_RAW_JSON:
             _save_raw_json(f"{season}_constructor_standings", raw_constructor_standings)
         constructor_standings_df = dp.constructor_standings_to_df(
@@ -221,6 +223,7 @@ def _fetch_season(
             db=db,
             is_current=is_current,
             export_csv=export_csv,
+            force_refresh=force_refresh,
             summary=summary,
         )
 
@@ -236,13 +239,16 @@ def _fetch_race_results_incremental(
     db: F1Database,
     is_current: bool,
     export_csv: bool,
+    force_refresh: bool,
     summary: RunSummary | None,
 ) -> None:
     """
     Fetch per-round race results, skipping rounds already stored in the DB.
 
-    For the current season, also caps fetches at the latest completed round
-    reported by the API so we don't hammer 404s for future races.
+    The last two rounds are always re-fetched even when already stored, so
+    post-race penalties and corrections propagate to Power BI. For the current
+    season, also caps fetches at the latest completed round reported by the
+    API so we don't hammer 404s for future races.
     """
     last_completed_round = None
     if is_current:
@@ -271,16 +277,25 @@ def _fetch_race_results_incremental(
     if last_completed_round is not None:
         rounds = [r for r in rounds if r <= last_completed_round]
 
+    refresh_rounds = set(sorted(rounds)[-2:]) if rounds else set()
+
     season_results = []
     for round_number in rounds:
         endpoint = f"{resolved_season}/{round_number}/race"
-        if db.race_results_exist(resolved_season, round_number):
+        already_in_db = db.race_results_exist(resolved_season, round_number)
+        if already_in_db and not force_refresh and round_number not in refresh_rounds:
             logger.info(
                 "Skipping round %s (%s) — already in database.",
                 round_number,
                 resolved_season,
             )
             continue
+        if already_in_db:
+            logger.info(
+                "Re-fetching round %s (%s) for possible corrections.",
+                round_number,
+                resolved_season,
+            )
 
         try:
             raw_result = client.get_race_results(round_number, season=str(resolved_season))
@@ -327,11 +342,16 @@ def run(
     end_year: str | int | None = None,
     fetch_race_results: bool = True,
     export_csv: bool = False,
+    force_refresh: bool = False,
     db_path: Path | str | None = None,
     write_summary: bool = True,
 ) -> RunSummary:
     """
     Pull F1 data for one or more seasons and write to SQLite.
+
+    By default, seasons already complete in the database are skipped so
+    routine refreshes only touch the live season. Use force_refresh=True to
+    re-fetch every requested season.
 
     Returns the RunSummary object (also written to logs/run_summary.json).
     """
@@ -341,6 +361,19 @@ def run(
 
     db = F1Database(db_path) if db_path is not None else F1Database()
     db.initialize()
+
+    if not force_refresh:
+        skipped = [s for s in seasons if s != "current" and db.season_is_complete(int(s))]
+        if skipped:
+            logger.info(
+                "Skipping complete seasons already in database: %s (use --force-refresh to redo)",
+                ", ".join(skipped),
+            )
+        seasons = [s for s in seasons if s not in skipped]
+        summary.set_seasons(seasons)
+
+    if not seasons:
+        logger.info("All requested seasons already complete; nothing to fetch.")
 
     client = F1ApiClient()
     _fetch_global_circuits(client, db, summary)
@@ -353,6 +386,7 @@ def run(
             db=db,
             fetch_race_results=fetch_race_results,
             export_csv=export_csv,
+            force_refresh=force_refresh,
             summary=summary,
         )
 
@@ -369,7 +403,9 @@ def run(
                 error_type=type(exc).__name__,
             )
 
-    logger.info("Pipeline finished for seasons: %s", ", ".join(seasons))
+    logger.info("Pipeline finished for seasons: %s", ", ".join(summary.seasons) or "(none)")
+
+    db.upsert_meta(summary.to_dict())
 
     if write_summary:
         summary.write()
