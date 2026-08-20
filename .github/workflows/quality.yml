@@ -35,4 +35,4 @@ jobs:
         run: mypy config src main.py
 
       - name: Test
-        run: pytest
+        run: python -m pytest

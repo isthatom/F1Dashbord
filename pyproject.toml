@@ -30,7 +30,7 @@ f1-pipeline = "main:main"
 
 [tool.setuptools]
 packages = ["config", "src"]
-py-modules = ["main"]
+py-modules = ["main", "app"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
