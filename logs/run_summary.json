@@ -1,7 +1,7 @@
 {
-  "started_at": "2026-08-31T12:55:41.033362+00:00",
-  "finished_at": "2026-08-31T12:56:28.667362+00:00",
-  "duration_seconds": 47.63,
+  "started_at": "2026-09-07T11:46:55.960043+00:00",
+  "finished_at": "2026-09-07T11:48:23.798331+00:00",
+  "duration_seconds": 87.84,
   "seasons": [
     "current"
   ],
@@ -12,12 +12,95 @@
     "races": 23,
     "driver_standings": 22,
     "constructor_standings": 11,
-    "race_results": 44,
     "analytics_points_trend": 3722,
     "analytics_rolling_position": 3632,
     "analytics_recent_form": 3722,
     "analytics_teammate_comparison": 3720
   },
-  "errors": [],
-  "error_count": 0
+  "errors": [
+    {
+      "endpoint": "current/last/race",
+      "message": "Resource not available at https://f1api.dev/api/current/last/race",
+      "error_type": "F1ApiNotFoundError",
+      "season": "current"
+    },
+    {
+      "endpoint": "2026/13/race",
+      "message": "Resource not available at https://f1api.dev/api/2026/13/race",
+      "error_type": "F1ApiNotFoundError",
+      "season": "2026",
+      "round": 13
+    },
+    {
+      "endpoint": "2026/14/race",
+      "message": "Resource not available at https://f1api.dev/api/2026/14/race",
+      "error_type": "F1ApiNotFoundError",
+      "season": "2026",
+      "round": 14
+    },
+    {
+      "endpoint": "2026/15/race",
+      "message": "Resource not available at https://f1api.dev/api/2026/15/race",
+      "error_type": "F1ApiNotFoundError",
+      "season": "2026",
+      "round": 15
+    },
+    {
+      "endpoint": "2026/16/race",
+      "message": "Resource not available at https://f1api.dev/api/2026/16/race",
+      "error_type": "F1ApiNotFoundError",
+      "season": "2026",
+      "round": 16
+    },
+    {
+      "endpoint": "2026/17/race",
+      "message": "Resource not available at https://f1api.dev/api/2026/17/race",
+      "error_type": "F1ApiNotFoundError",
+      "season": "2026",
+      "round": 17
+    },
+    {
+      "endpoint": "2026/18/race",
+      "message": "Resource not available at https://f1api.dev/api/2026/18/race",
+      "error_type": "F1ApiNotFoundError",
+      "season": "2026",
+      "round": 18
+    },
+    {
+      "endpoint": "2026/19/race",
+      "message": "Resource not available at https://f1api.dev/api/2026/19/race",
+      "error_type": "F1ApiNotFoundError",
+      "season": "2026",
+      "round": 19
+    },
+    {
+      "endpoint": "2026/20/race",
+      "message": "Resource not available at https://f1api.dev/api/2026/20/race",
+      "error_type": "F1ApiNotFoundError",
+      "season": "2026",
+      "round": 20
+    },
+    {
+      "endpoint": "2026/21/race",
+      "message": "Resource not available at https://f1api.dev/api/2026/21/race",
+      "error_type": "F1ApiNotFoundError",
+      "season": "2026",
+      "round": 21
+    },
+    {
+      "endpoint": "2026/22/race",
+      "message": "Resource not available at https://f1api.dev/api/2026/22/race",
+      "error_type": "F1ApiNotFoundError",
+      "season": "2026",
+      "round": 22
+    },
+    {
+      "endpoint": "2026/23/race",
+      "message": "Resource not available at https://f1api.dev/api/2026/23/race",
+      "error_type": "F1ApiNotFoundError",
+      "season": "2026",
+      "round": 23
+    }
+  ],
+  "error_count": 12
 }
