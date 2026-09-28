@@ -1,7 +1,7 @@
 {
-  "started_at": "2026-09-21T12:12:02.336886+00:00",
-  "finished_at": "2026-09-21T12:12:50.410537+00:00",
-  "duration_seconds": 48.07,
+  "started_at": "2026-09-28T13:07:37.280737+00:00",
+  "finished_at": "2026-09-28T13:08:24.987823+00:00",
+  "duration_seconds": 47.71,
   "seasons": [
     "current"
   ],
@@ -13,10 +13,10 @@
     "driver_standings": 22,
     "constructor_standings": 11,
     "race_results": 44,
-    "analytics_points_trend": 3766,
-    "analytics_rolling_position": 3676,
-    "analytics_recent_form": 3766,
-    "analytics_teammate_comparison": 3764
+    "analytics_points_trend": 3788,
+    "analytics_rolling_position": 3698,
+    "analytics_recent_form": 3788,
+    "analytics_teammate_comparison": 3786
   },
   "errors": [],
   "error_count": 0
