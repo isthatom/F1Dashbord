@@ -1,23 +1,52 @@
 {
-  "started_at": "2026-11-02T14:57:00.826015+00:00",
-  "finished_at": "2026-11-02T14:57:49.255265+00:00",
-  "duration_seconds": 48.43,
+  "started_at": "2026-11-09T15:26:18.198838+00:00",
+  "finished_at": "2026-11-09T15:26:20.788599+00:00",
+  "duration_seconds": 2.59,
   "seasons": [
     "current"
   ],
   "tables": {
-    "circuits": 53,
-    "drivers": 22,
-    "teams": 11,
-    "races": 23,
-    "driver_standings": 22,
-    "constructor_standings": 11,
-    "race_results": 44,
     "analytics_points_trend": 3876,
     "analytics_rolling_position": 3786,
     "analytics_recent_form": 3876,
     "analytics_teammate_comparison": 3874
   },
-  "errors": [],
-  "error_count": 0
+  "errors": [
+    {
+      "endpoint": "circuits",
+      "message": "Request failed for https://f1api.dev/api/circuits: 402 Client Error: Payment Required for url: https://f1api.dev/api/circuits",
+      "error_type": "F1ApiError"
+    },
+    {
+      "endpoint": "current/drivers",
+      "message": "Request failed for https://f1api.dev/api/current/drivers: 402 Client Error: Payment Required for url: https://f1api.dev/api/current/drivers",
+      "error_type": "F1ApiError",
+      "season": "current"
+    },
+    {
+      "endpoint": "current/teams",
+      "message": "Request failed for https://f1api.dev/api/current/teams: 402 Client Error: Payment Required for url: https://f1api.dev/api/current/teams",
+      "error_type": "F1ApiError",
+      "season": "current"
+    },
+    {
+      "endpoint": "current",
+      "message": "Request failed for https://f1api.dev/api/current: 402 Client Error: Payment Required for url: https://f1api.dev/api/current",
+      "error_type": "F1ApiError",
+      "season": "current"
+    },
+    {
+      "endpoint": "current/drivers-championship",
+      "message": "Request failed for https://f1api.dev/api/current/drivers-championship: 402 Client Error: Payment Required for url: https://f1api.dev/api/current/drivers-championship",
+      "error_type": "F1ApiError",
+      "season": "current"
+    },
+    {
+      "endpoint": "current/constructors-championship",
+      "message": "Request failed for https://f1api.dev/api/current/constructors-championship: 402 Client Error: Payment Required for url: https://f1api.dev/api/current/constructors-championship",
+      "error_type": "F1ApiError",
+      "season": "current"
+    }
+  ],
+  "error_count": 6
 }
